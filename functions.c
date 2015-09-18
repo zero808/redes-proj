@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "functions.h"
+
 extern char ECPname[];
 extern unsigned short int ECPport;
 
@@ -40,4 +42,23 @@ int action_selector() {
 		return action = 3;
 
 	return action = -1;
+}
+
+
+int parseString(char *line, char ***argv) {
+	char *buffer;
+	int argc, max_toks;
+	
+	buffer = (char*) malloc(strlen(line) * sizeof(char));
+	strcpy(buffer,line);
+	
+	max_toks = NB_TOPICS + 2;
+	*argv = (char**) malloc(max_toks * sizeof(char**));
+	
+	argc = 0;
+	(*argv)[argc++] = strtok(buffer, " ");
+	while ((((*argv)[argc] = strtok(NULL, " ")) != NULL) && (argc < max_toks))
+		++argc;
+	
+	return argc;
 }

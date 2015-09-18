@@ -75,7 +75,8 @@ int main(int argc, char **argv) {
 		int action, i;
 		char answers[NB_ANSWERS];
 		action = action_selector();
-	    
+		char **T; //ECP's TQR reply into tokens
+		int nt; //number of topics
 	    
 	    switch(action) {
 	    	
@@ -87,21 +88,32 @@ int main(int argc, char **argv) {
 	    			/* TQR - User–ECP Protocol (in UDP) */	    			
 	    			n=sendto(fd_udp,"TQR\n",5,0,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
 	    			if(n==-1)exit(1); //error
-
+ 
 					addrlen=sizeof(serveraddr);
 					n=recvfrom(fd_udp,buffer,4096,0,(struct sockaddr*)&serveraddr,&addrlen);
 					if(n==-1)exit(1);
-   
-					write(1,"echo: ",6); //stdout
-					write(1,buffer,n);
+				
+					/* this is just a test */
+					write(1,"echo: ",6);
+					write(1,buffer,n); 
 					
-					/* ... */
-					
+					/* breaks the ECP's TQR reply into tokens */
+  					n = parseString(buffer, &T); 
+  					
+  					nt = atoi(T[1]);
+  					
+  					/* questionnaire topics displayed as a numbered list */
+  					for (i = 0; i < nt; ++i) {
+    					printf("%d- %s",i+1, T[i+2]);
+    					if(i < nt-1) //o ultimo token tem '\n'
+    						printf("\n");
+    				}
 
 					hostptr=gethostbyaddr((char*)&serveraddr.sin_addr,sizeof(struct in_addr),AF_INET);
 					if(hostptr==NULL)
-					printf("sent by [%s:%hu]\n",inet_ntoa(serveraddr.sin_addr),ntohs(serveraddr.sin_port));
-					else printf("sent by [%s:%hu]\n",hostptr->h_name,ntohs(serveraddr.sin_port));
+						printf("sent by [%s:%hu]\n",inet_ntoa(serveraddr.sin_addr),ntohs(serveraddr.sin_port));
+					else 
+						printf("sent by [%s:%hu]\n",hostptr->h_name,ntohs(serveraddr.sin_port));
 	    	
 	    			break;
 	    	

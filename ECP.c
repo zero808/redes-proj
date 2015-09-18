@@ -8,6 +8,8 @@
 
 #include "constants.h"
 
+#define TOPIC_NAME_SZ 25
+
 int main(int argc, char **argv) {
 
 	int fd, addrlen, ret, nread;
@@ -52,7 +54,7 @@ int main(int argc, char **argv) {
 		if(strncmp(buffer, tqr, 5) == 0) {
 		
 			/* this is just a test */
-			ret=sendto(fd,"AWT...\n",7,0,(struct sockaddr*)&clientaddr,addrlen); 
+			ret=sendto(fd,"AWT 3 App_layer Transport_layer Network_layer\n",47,0,(struct sockaddr*)&clientaddr,addrlen); 
 			if(ret==-1)exit(1);
 			
 			/* 
