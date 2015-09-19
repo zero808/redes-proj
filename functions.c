@@ -27,6 +27,8 @@ int action_selector() {
 	char cmd[32];
 	int action;
 	
+	printf("> ");
+	
 	scanf("%s", cmd);
 	
 	if (strcmp(cmd, "list") == 0)
@@ -61,4 +63,15 @@ int parseString(char *line, char ***argv) {
 		++argc;
 	
 	return argc;
+}
+
+void displayTopics(char ***argv) {
+	int i, nt = atoi((*argv)[1]);
+	
+	/* display questionnaire topics as a numbered list */
+	for (i = 0; i < nt; ++i) {
+		printf("%d- %s",i+1, (*argv)[i+2]);
+		if(i < nt-1) //last token includes byte '\n'
+		printf("\n");
+    }
 }

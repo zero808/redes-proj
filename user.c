@@ -4,6 +4,7 @@
 #include <sys/socket.h> /* socket() */
 #include <netdb.h> /* gethostbyname() */
 #include <arpa/inet.h> /* htons() */
+#include <netinet/in.h>
 #include <string.h> /* memset() */
 #include <unistd.h> /* write(), read() */
 #include <signal.h> /* signal() */
@@ -67,17 +68,25 @@ int main(int argc, char **argv) {
 
 	memset((void*)&serveraddr,(int)'\0',sizeof(serveraddr));
 	serveraddr.sin_family=AF_INET;
-	serveraddr.sin_addr.s_addr=((struct in_addr*)(hostptr->h_addr_list[0]))->s_addr; //server IP address
+	serveraddr.sin_addr.s_addr=((struct in_addr*)(hostptr->h_addr_list[0]))->s_addr; //ECP server IP address
 	serveraddr.sin_port=htons((u_short) ECPport);
-
+	
+	int action;
+	char answers[NB_ANSWERS];
+	char **T; //ECP's TQR reply into tokens
+	int nt; //number of topics
+	int tnn; //desired questionnaire topic number
+	char ter_request[8];
+	char awtes[] = "AWTES 127.0.1.1 59000\n";
+	char iptes_addr[INET_ADDRSTRLEN];// 16 bytes (15 characters for IPv4 (xxx.xxx.xxx.xxx format, 12+3 separators) + null character '\0')
+	struct in_addr IPTES;
+	unsigned short int portTES;
+	char rqt_request[8];
 	
 	while(1) {
-		int action, i;
-		char answers[NB_ANSWERS];
+		
 		action = action_selector();
-		char **T; //ECP's TQR reply into tokens
-		int nt; //number of topics
-	    
+			    
 	    switch(action) {
 	    	
 	    	case -1: 
@@ -85,48 +94,148 @@ int main(int argc, char **argv) {
 	    			break;
 	    			 
 	    	case  0: 
+	    			/* list instruction */
+	    			
 	    			/* TQR - User–ECP Protocol (in UDP) */	    			
 	    			n=sendto(fd_udp,"TQR\n",5,0,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
 	    			if(n==-1)exit(1); //error
  
+ 					/* AWT nT T1 T2 ... TnT - User–ECP Protocol (in UDP) */
 					addrlen=sizeof(serveraddr);
 					n=recvfrom(fd_udp,buffer,4096,0,(struct sockaddr*)&serveraddr,&addrlen);
 					if(n==-1)exit(1);
 				
-					/* this is just a test */
-					write(1,"echo: ",6);
+				
+					//TEST
+					printf("TEST ------------------------------------------------------------------\n");
+					write(1,"echo from ECP: ",15);
 					write(1,buffer,n); 
 					
-					/* breaks the ECP's TQR reply into tokens */
-  					n = parseString(buffer, &T); 
-  					
-  					nt = atoi(T[1]);
-  					
-  					/* questionnaire topics displayed as a numbered list */
-  					for (i = 0; i < nt; ++i) {
-    					printf("%d- %s",i+1, T[i+2]);
-    					if(i < nt-1) //o ultimo token tem '\n'
-    						printf("\n");
-    				}
-
+					/* check who sent the message */
 					hostptr=gethostbyaddr((char*)&serveraddr.sin_addr,sizeof(struct in_addr),AF_INET);
 					if(hostptr==NULL)
 						printf("sent by [%s:%hu]\n",inet_ntoa(serveraddr.sin_addr),ntohs(serveraddr.sin_port));
 					else 
 						printf("sent by [%s:%hu]\n",hostptr->h_name,ntohs(serveraddr.sin_port));
+					printf("----------------------------------------------------------- end of TEST\n");
+					//end of TEST
+					
+
+					/* breaks the ECP's TQR reply into tokens */
+  					n = parseString(buffer, &T); 
+  					
+  					/* verify protocol message received */
+  					//verifyAWT(n, &T);//TODO
+  					
+  					/* questionnaire topics displayed as a numbered list */	
+  					displayTopics(&T);
 	    	
 	    			break;
 	    	
 	    	case  1: 
+	    			/* request instruction */
+	    			
+	    			scanf("%d", &tnn);
+	    			
+	    			//write at most 8 bytes, including the terminating null byte ('\0'), because tnn is composed of 1 or 2 digits
+	    			snprintf(ter_request, 8, "TER %d\n", tnn);
+	    			
 	    			/* TER Tnn - User–ECP Protocol (in UDP) */
-	    			/* ... */
+	    			n=sendto(fd_udp,ter_request,8,0,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
+	    			if(n==-1)exit(1); //error
+	    			
+	    			/* AWTES IPTES portTES - User–ECP Protocol (in UDP) */
+	    			addrlen=sizeof(serveraddr);
+					n=recvfrom(fd_udp,buffer,128,0,(struct sockaddr*)&serveraddr,&addrlen);
+					if(n==-1)exit(1);
+	    			
+	    			
+	    			//awtes is a simulated ECP's AWTES reply 
+	    			/* breaks the ECP's AWTS reply into tokens */
+  					n = parseString(awtes, &T); //FIXME replace awtes with buffer when ECP is ready
+  					
+  					/* verify protocol message received */
+  					//verifyAWTES(n, &T);//TODO
+  					
+  					strcpy(iptes_addr, T[1]);
+  					portTES = atoi(T[2]);
+	    			
+	    			printf("Simulated ECP's AWTES reply: %s %hu\n", iptes_addr, portTES);
+	    			
+	    			/* 
+	    			//also a valid solution
+	    			if (inet_aton(iptes_addr, &IPTES) == 0) {
+	    				fprintf(stderr, "Invalid address\n");
+	    				exit(1);
+	    			}
+	    			*/
+	    			
+	    			n = inet_pton(AF_INET, iptes_addr, &IPTES);
+	    			if (n <= 0) {
+	    				if (n == 0)
+	    					fprintf(stderr, "Not in presentation format");
+	    				else
+	    					perror("Error in inet_pton");
+	    				exit(1);
+	    			}
+	    			
+					hostptr=gethostbyaddr(&IPTES,sizeof(IPTES),AF_INET);
+	    			printf("%s %hu\n", hostptr->h_name, portTES); //expected output from ECP's AWTES reply
 	    			
 	    			/* RQT SID - User–TES Protocol (in TCP) */
+	    			serveraddr.sin_addr.s_addr=IPTES.s_addr; //TES server IP address
+	    			serveraddr.sin_port=htons((u_short) portTES);
+	    			
+	    			n=connect(fd_tcp,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
+					if(n==-1)exit(1); //error
+	    			
+	    			//write 11 bytes, including the terminating null byte ('\0'), because SID is composed of 5 digits
+	    			n=sprintf(rqt_request, "RQT %d\n", SID);
+	    			
+	    			ptr=rqt_request;
+	    			nbytes=n+1;//10+1
+	    			
+	    			//printf("%s", ptr);
+	    			
+	    			/* write() may write a smaller number of bytes than solicited */
+	    			nleft=nbytes;
+	    			while(nleft>0) {
+	    				nwritten=write(fd_tcp,ptr,nleft);
+	    				if(nwritten<=0) exit(1); //error
+	    				nleft-=nwritten;
+	    				ptr+=nwritten;
+	    			}
+	    			
+	    			/* AQT QID time size data - User–TES Protocol (in TCP) */
+	    			
 	    			/* ... */
+	    			
+	    			/* verify protocol message received */
+  					//verifyAQT();//TODO
+	    			
+	    			
+	    			/*
+	    			nleft=nbytes; ptr=&buffer[0];
+
+					while(nleft>0){
+						nread=read(fd_tcp,ptr,nleft);
+						if(nread==-1)exit(1); //error
+						else if(nread==0)break; //closed by peer
+						nleft-=nread;
+						ptr+=nread;
+					}
+
+					nread=nbytes-nleft;
+	
+					write(1,"echo from TES: ",15); //stdout
+					write(1,buffer,nread);
+	    			*/
 	    			
 	    			break;
 	    			
 	    	case  2: 
+	    			/* submit instruction */
+	    			
 	    			/* answer values (V1 to V5) */
 	    			for(i = 0; i<NB_ANSWERS; i++)
   						scanf(" %c", &answers[i]);
@@ -137,49 +246,16 @@ int main(int argc, char **argv) {
   					break;
   						
 	    	case  3: 	
-	    			/* close(fd_tcp); */
-	    			/* close(fd_udp); */
+	    			/* exit instruction */
+	    			
+	    			close(fd_tcp);
+	    			close(fd_udp);
+	    			
+	    			/* the program does not return a value from main(): 
+	    			control flow never falls off the end of main() because exit() never returns */
 	    			exit(0);
-	    	
 	    }
 	    
-	}
-		
-		
-	/* ---------------- */	
-	
+	}//end while	
 
-	n=connect(fd_tcp,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
-	if(n==-1)exit(1); //error
-	
-	ptr=strcpy(buffer,"Hello!\n");
-	nbytes=7;
-
-	nleft=nbytes;
-	
-	while(nleft>0){
-		nwritten=write(fd_tcp,ptr,nleft);
-		if(nwritten<=0)exit(1); //error
-		nleft-=nwritten;
-		ptr+=nwritten;
-	}
-	
-	nleft=nbytes; ptr=&buffer[0];
-
-	while(nleft>0){
-		nread=read(fd_tcp,ptr,nleft);
-		if(nread==-1)exit(1); //error
-		else if(nread==0)break; //closed by peer
-		nleft-=nread;
-		ptr+=nread;
-	}
-
-	nread=nbytes-nleft;
-	
-	close(fd_tcp);
-	close(fd_udp);
-	
-	write(1,"echo: ",6); //stdout
-	write(1,buffer,nread);
-	exit(0);
 }
