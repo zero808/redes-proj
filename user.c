@@ -72,7 +72,8 @@ int main(int argc, char **argv) {
 	serveraddr.sin_port=htons((u_short) ECPport);
 	
 	int action;
-	char v[NB_ANSWERS];//answer values (V1 to V5)
+	char answers[NB_ANSWERS*2];//sequence of answers values (V1 to V5) in the format "V1 V2 V3 V4 V5"
+	char v;//answer that can take one of the values A, B, C or D
 	char **T; //ECP's TQR reply into tokens
 	int nt; //number of topics
 	int tnn; //desired questionnaire topic number
@@ -82,9 +83,9 @@ int main(int argc, char **argv) {
 	const char *iptes_addr;
 	unsigned short int portTES;
 	char rqt_request[8];
-	//char *QID; //unique transaction identifier string
-	//char *qfile;//questionnaire file
-	//char *rqs_request;
+	char *QID; //unique transaction identifier string
+	char rqs_request[128];
+
 	
 	while(1) {
 		
@@ -209,11 +210,12 @@ int main(int argc, char **argv) {
 	    			}
 	    			
 	    			/* AQT QID time size data - User–TES Protocol (in TCP) */
+	    			//TODO
 	    			
 	    			/* ... */
 	    			
 	    			/* verify protocol message received */
-  					//verifyAQT();//TODO
+  					//verifyAQT();
 	    			
 	    			
 	    			/*
@@ -238,19 +240,22 @@ int main(int argc, char **argv) {
 	    	case  2: 
 	    			/* submit instruction */
 	    			
-	    			/* answer values (V1 to V5) */
-	    			for(i = 0; i<NB_ANSWERS; i++)
-  						scanf(" %c", &v[i]);
+					i = 0; 
+					getchar();
+					while ((v = getchar()) != '\n') {
+						answers[i++] = v; //answer values (V1 to V5) in the format "V1 V2 V3 V4 V5"
+					}
+					answers[i] = '\0';
   					
   					/* RQS SID QID V1 V2 V3 V4 V5 - User–TES Protocol (in TCP) */
   					
-  					/*
-	    			n=sprintf(rqs_request, "RQS %d %s %c %c %c %c %c\n", SID, QID, v[0], v[1], v[2], v[3], v[4]);
-	    			
+  					/* just for testing... */
+  					QID = "12345678"; //FIXME
+  					
+  					n=sprintf(rqs_request, "RQS %d %s %s\n", SID, QID, answers);
+  					
 	    			ptr=rqs_request;
 	    			nbytes=n+1;
-	    			
-	    			printf("%s", ptr);
 	    			
 	    			nleft=nbytes;
 	    			while(nleft>0) {
@@ -259,7 +264,6 @@ int main(int argc, char **argv) {
 	    				nleft-=nwritten;
 	    				ptr+=nwritten;
 	    			}
-	    			*/
   					
   					
   					break;
