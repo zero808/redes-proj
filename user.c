@@ -72,16 +72,18 @@ int main(int argc, char **argv) {
 	serveraddr.sin_port=htons((u_short) ECPport);
 	
 	int action;
-	char answers[NB_ANSWERS];
+	char v[NB_ANSWERS];//answer values (V1 to V5)
 	char **T; //ECP's TQR reply into tokens
 	int nt; //number of topics
 	int tnn; //desired questionnaire topic number
 	char ter_request[8];
-	char awtes[] = "AWTES 127.0.1.1 59000\n";
-	char iptes_addr[INET_ADDRSTRLEN];// 16 bytes (15 characters for IPv4 (xxx.xxx.xxx.xxx format, 12+3 separators) + null character '\0')
+	char iptes_addr[INET_ADDRSTRLEN];// 16 bytes (15 characters for IPv4 (xxx.xxx.xxx.xxx format, 12+3 separators) + '\0')
 	struct in_addr IPTES;
 	unsigned short int portTES;
 	char rqt_request[8];
+	//char *QID; //unique transaction identifier string
+	//char *qfile;//questionnaire file
+	//char *rqs_request;
 	
 	while(1) {
 		
@@ -102,7 +104,7 @@ int main(int argc, char **argv) {
  
  					/* AWT nT T1 T2 ... TnT - User–ECP Protocol (in UDP) */
 					addrlen=sizeof(serveraddr);
-					n=recvfrom(fd_udp,buffer,4096,0,(struct sockaddr*)&serveraddr,&addrlen);
+					n=recvfrom(fd_udp,buffer,4096,0,(struct sockaddr*)&serveraddr,&addrlen); //FIXME 4096
 					if(n==-1)exit(1);
 				
 				
@@ -124,8 +126,9 @@ int main(int argc, char **argv) {
 					/* breaks the ECP's TQR reply into tokens */
   					n = parseString(buffer, &T); 
   					
-  					/* verify protocol message received */
-  					//verifyAWT(n, &T);//TODO
+  					/* verify received protocol message */
+  					n=verifyAWT(n, &T);
+  					if(n==-1)exit(1);
   					
   					/* questionnaire topics displayed as a numbered list */	
   					displayTopics(&T);
@@ -148,11 +151,9 @@ int main(int argc, char **argv) {
 	    			addrlen=sizeof(serveraddr);
 					n=recvfrom(fd_udp,buffer,128,0,(struct sockaddr*)&serveraddr,&addrlen);
 					if(n==-1)exit(1);
-	    			
-	    			
-	    			//awtes is a simulated ECP's AWTES reply 
+	    			 
 	    			/* breaks the ECP's AWTS reply into tokens */
-  					n = parseString(awtes, &T); //FIXME replace awtes with buffer when ECP is ready
+  					n = parseString(buffer, &T);
   					
   					/* verify protocol message received */
   					//verifyAWTES(n, &T);//TODO
@@ -160,10 +161,10 @@ int main(int argc, char **argv) {
   					strcpy(iptes_addr, T[1]);
   					portTES = atoi(T[2]);
 	    			
-	    			printf("Simulated ECP's AWTES reply: %s %hu\n", iptes_addr, portTES);
+	    			//printf("%s %hu\n", iptes_addr, portTES);
 	    			
 	    			/* 
-	    			//also a valid solution
+	    			//inet_aton instead of inet_pton is also a valid solution
 	    			if (inet_aton(iptes_addr, &IPTES) == 0) {
 	    				fprintf(stderr, "Invalid address\n");
 	    				exit(1);
@@ -173,8 +174,10 @@ int main(int argc, char **argv) {
 	    			n = inet_pton(AF_INET, iptes_addr, &IPTES);
 	    			if (n <= 0) {
 	    				if (n == 0)
+	    					//iptes_addr does not contain a character string representing a valid network address in AF_INET
 	    					fprintf(stderr, "Not in presentation format");
 	    				else
+	    				//AF_INET does not contain a valid address family
 	    					perror("Error in inet_pton");
 	    				exit(1);
 	    			}
@@ -238,10 +241,27 @@ int main(int argc, char **argv) {
 	    			
 	    			/* answer values (V1 to V5) */
 	    			for(i = 0; i<NB_ANSWERS; i++)
-  						scanf(" %c", &answers[i]);
+  						scanf(" %c", &v[i]);
   					
   					/* RQS SID QID V1 V2 V3 V4 V5 - User–TES Protocol (in TCP) */
-  					/* ... */
+  					
+  					/*
+	    			n=sprintf(rqs_request, "RQS %d %s %c %c %c %c %c\n", SID, QID, v[0], v[1], v[2], v[3], v[4]);
+	    			
+	    			ptr=rqs_request;
+	    			nbytes=n+1;
+	    			
+	    			printf("%s", ptr);
+	    			
+	    			nleft=nbytes;
+	    			while(nleft>0) {
+	    				nwritten=write(fd_tcp,ptr,nleft);
+	    				if(nwritten<=0) exit(1); //error
+	    				nleft-=nwritten;
+	    				ptr+=nwritten;
+	    			}
+	    			*/
+  					
   					
   					break;
   						

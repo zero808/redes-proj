@@ -8,8 +8,6 @@
 
 #include "constants.h"
 
-#define TOPIC_NAME_SZ 25
-
 int main(int argc, char **argv) {
 
 	int fd, addrlen, ret, nread;
@@ -44,30 +42,21 @@ int main(int argc, char **argv) {
 	/* Use bind to register the server well-known address (and port) with the system. */
 	ret=bind(fd,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
 	if(ret==-1)exit(1);//error
-
+	
+	char tqr[] = "TQR\n";
+	
 	while(1){
-		char tqr[] = "TQR\n";
+		
 		addrlen=sizeof(clientaddr);
 		nread=recvfrom(fd,buffer,32,0,(struct sockaddr*)&clientaddr,&addrlen);
 		if(nread==-1)exit(1);//error
 		
-		if(strncmp(buffer, tqr, 5) == 0) {
+		/* just testing user... */
+		char str[] = "AWT 3 App_layer Transport_layer Network_layer\n";
+		//char str[] = "AWTES 127.0.1.1 59000\n";
 		
-			/* this is just a test */
-			ret=sendto(fd,"AWT 3 App_layer Transport_layer Network_layer\n",47,0,(struct sockaddr*)&clientaddr,addrlen); 
-			if(ret==-1)exit(1);
-			
-			/* 
-			if the TQR cannot be answered, the reply will be the string "EOF" ... 
-			
-				ret=sendto(fd,"EOF\n",5,0,(struct sockaddr*)&clientaddr,addrlen); 
-				if(ret==-1)exit(1);
-			*/
-		}
-		else {
-			ret=sendto(fd,"ERR\n",5,0,(struct sockaddr*)&clientaddr,addrlen); /* '\0' transmitted */
-			if(ret==-1)exit(1);//error
-		}
+		ret=sendto(fd,str,sizeof(str),0,(struct sockaddr*)&clientaddr,addrlen);
+		if(ret==-1)exit(1);
 	}
 
 	//close(fd);

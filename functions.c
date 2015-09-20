@@ -75,3 +75,28 @@ void displayTopics(char ***argv) {
 		printf("\n");
     }
 }
+
+int verifyAWT(int toks, char ***argv) {
+	int i, nt, max_toks;
+	
+	max_toks = NB_TOPICS + 2;
+	if (toks > max_toks)
+		return -1;
+		
+	if (strcmp((*argv)[0], "AWT") != 0)
+		return -1;
+	
+	nt = atoi((*argv)[1]);
+	if (nt < 1 || nt > NB_TOPICS)
+		return -1;
+	
+	//detect mismatch between indicated number of topics and listed topics
+	if(nt != toks-2)
+		return -1;
+	
+	for (i = 2; i < toks; ++i)
+		if((strlen((*argv)[i]) > TOPIC_NAME_SZ)) 
+			return -1;
+    
+	return 0;
+}
