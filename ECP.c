@@ -52,8 +52,8 @@ int main(int argc, char **argv) {
 		if(nread==-1)exit(1);//error
 		
 		/* just testing user... */
-		char str[] = "AWT 3 App_layer Transport_layer Network_layer\n";
-		//char str[] = "AWTES 127.0.1.1 59000\n";
+		//char str[] = "AWT 3 App_layer Transport_layer Network_layer\n";
+		char str[] = "AWTES 127.0.1.1 59000\n";
 		
 		ret=sendto(fd,str,sizeof(str),0,(struct sockaddr*)&clientaddr,addrlen);
 		if(ret==-1)exit(1);

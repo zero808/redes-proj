@@ -77,8 +77,9 @@ int main(int argc, char **argv) {
 	int nt; //number of topics
 	int tnn; //desired questionnaire topic number
 	char ter_request[8];
-	char iptes_addr[INET_ADDRSTRLEN];// 16 bytes (15 characters for IPv4 (xxx.xxx.xxx.xxx format, 12+3 separators) + '\0')
+	//const char iptes_addr[INET_ADDRSTRLEN];// 16 bytes (15 characters for IPv4 (xxx.xxx.xxx.xxx format, 12+3 separators) + '\0')
 	struct in_addr IPTES;
+	const char *iptes_addr;
 	unsigned short int portTES;
 	char rqt_request[8];
 	//char *QID; //unique transaction identifier string
@@ -123,7 +124,7 @@ int main(int argc, char **argv) {
 					//end of TEST
 					
 
-					/* breaks the ECP's TQR reply into tokens */
+					/* breaks the ECP's AWT reply into tokens */
   					n = parseString(buffer, &T); 
   					
   					/* verify received protocol message */
@@ -152,38 +153,36 @@ int main(int argc, char **argv) {
 					n=recvfrom(fd_udp,buffer,128,0,(struct sockaddr*)&serveraddr,&addrlen);
 					if(n==-1)exit(1);
 	    			 
-	    			/* breaks the ECP's AWTS reply into tokens */
+	    			/* breaks the ECP's AWTES reply into tokens */
   					n = parseString(buffer, &T);
   					
-  					/* verify protocol message received */
-  					//verifyAWTES(n, &T);//TODO
+  					/* verify received protocol message */
+  					n=verifyAWTES(n, &T);
+  					if(n==-1)exit(1);
   					
-  					strcpy(iptes_addr, T[1]);
+  					iptes_addr = T[1];
   					portTES = atoi(T[2]);
 	    			
 	    			//printf("%s %hu\n", iptes_addr, portTES);
 	    			
-	    			/* 
-	    			//inet_aton instead of inet_pton is also a valid solution
-	    			if (inet_aton(iptes_addr, &IPTES) == 0) {
-	    				fprintf(stderr, "Invalid address\n");
-	    				exit(1);
-	    			}
-	    			*/
-	    			
+	    			/* converts IPv4 network address in dotted-decimal format into a struct in_addr */
 	    			n = inet_pton(AF_INET, iptes_addr, &IPTES);
 	    			if (n <= 0) {
 	    				if (n == 0)
-	    					//iptes_addr does not contain a character string representing a valid network address in AF_INET
-	    					fprintf(stderr, "Not in presentation format");
-	    				else
-	    				//AF_INET does not contain a valid address family
+	    					/* iptes_addr does not point to a character string containing an IPv4 network address 
+	    					in dotted-decimal format, "ddd.ddd.ddd.ddd", where ddd is a decimal number of up to 
+	    					three digits in the range 0 to 255. */
+	    					fprintf(stderr, "Not in presentation format\n");
+	    				else 
+	    					//AF_INET does not contain a valid address family
 	    					perror("Error in inet_pton");
+	    					
 	    				exit(1);
 	    			}
 	    			
 					hostptr=gethostbyaddr(&IPTES,sizeof(IPTES),AF_INET);
-	    			printf("%s %hu\n", hostptr->h_name, portTES); //expected output from ECP's AWTES reply
+					if(hostptr==NULL)exit(1);
+	    			else printf("%s %hu\n", hostptr->h_name, portTES); //expected output from ECP's AWTES reply
 	    			
 	    			/* RQT SID - User–TES Protocol (in TCP) */
 	    			serveraddr.sin_addr.s_addr=IPTES.s_addr; //TES server IP address

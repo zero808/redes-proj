@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <netinet/in.h> /* for INET_ADDRSTRLEN */
 
 #include "functions.h"
 
@@ -95,8 +96,29 @@ int verifyAWT(int toks, char ***argv) {
 		return -1;
 	
 	for (i = 2; i < toks; ++i)
-		if((strlen((*argv)[i]) > TOPIC_NAME_SZ)) 
+		if(strlen((*argv)[i]) > TOPIC_NAME_SZ) 
 			return -1;
     
+	return 0;
+}
+
+int verifyAWTES(int toks, char ***argv) {
+	int port;
+	
+	if (toks != 3)
+		return -1;
+	
+	if (strcmp((*argv)[0], "AWTES") != 0)
+		return -1;
+
+	if(strlen((*argv)[1]) > INET_ADDRSTRLEN-1) 
+		return -1;
+	
+	port = atoi((*argv)[2]);
+
+	//The Dynamic and/or Private Ports are those from 49152 through 65535
+	if(port < 0 || port > 65535)
+		return -1;
+	
 	return 0;
 }
