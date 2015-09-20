@@ -81,13 +81,13 @@ int verifyAWT(int toks, char ***argv) {
 	int i, nt, max_toks;
 	
 	max_toks = NB_TOPICS + 2;
-	if (toks > max_toks)
-		return -1;
-		
-	if (strcmp((*argv)[0], "AWT") != 0)
+	nt = atoi((*argv)[1]);
+	
+	if (toks <= max_toks && strcmp((*argv)[0], "AWT") == 0)
+		;
+	else
 		return -1;
 	
-	nt = atoi((*argv)[1]);
 	if (nt < 1 || nt > NB_TOPICS)
 		return -1;
 	
@@ -105,13 +105,9 @@ int verifyAWT(int toks, char ***argv) {
 int verifyAWTES(int toks, char ***argv) {
 	int port;
 	
-	if (toks != 3)
-		return -1;
-	
-	if (strcmp((*argv)[0], "AWTES") != 0)
-		return -1;
-
-	if(strlen((*argv)[1]) > INET_ADDRSTRLEN-1) 
+	if (toks == 3 && strcmp((*argv)[0], "AWTES") == 0 && (strlen((*argv)[1]) <= INET_ADDRSTRLEN-1))
+		;
+	else
 		return -1;
 	
 	port = atoi((*argv)[2]);
