@@ -72,11 +72,11 @@ int main(int argc, char **argv) {
 	serveraddr.sin_port=htons((u_short) ECPport);
 	
 	int action;
+	char topic[4];
+	int tnn; //desired questionnaire topic number (between 1 and 99)
 	char answers[NB_ANSWERS*2];//sequence of answers values (V1 to V5) in the format "V1 V2 V3 V4 V5"
-	char v;//answer that can take one of the values A, B, C or D
 	char **T; //ECP's TQR reply into tokens
 	int nt; //number of topics
-	int tnn; //desired questionnaire topic number
 	char ter_request[8];
 	//const char iptes_addr[INET_ADDRSTRLEN];// 16 bytes (15 characters for IPv4 (xxx.xxx.xxx.xxx format, 12+3 separators) + '\0')
 	struct in_addr IPTES;
@@ -85,7 +85,7 @@ int main(int argc, char **argv) {
 	char rqt_request[8];
 	char *QID; //unique transaction identifier string
 	char rqs_request[128];
-
+	
 	
 	while(1) {
 		
@@ -94,8 +94,8 @@ int main(int argc, char **argv) {
 	    switch(action) {
 	    	
 	    	case -1: 
-	    			printf("error: Invalid option.\n");
-	    			break;
+	    			printf("error: Invalid instruction.\n");
+	    			exit(0);
 	    			 
 	    	case  0: 
 	    			/* list instruction */
@@ -139,11 +139,20 @@ int main(int argc, char **argv) {
 	    	
 	    	case  1: 
 	    			/* request instruction */
+	    				    			    			
+	    			getchar();
+	    			ptr = fgets(topic, sizeof(topic), stdin);
+	    			if (ptr == NULL) exit(1);	
 	    			
-	    			scanf("%d", &tnn);
+	    			tnn = verifyTnn(ptr);
+	    			if (tnn == -1) {
+	    				printf("Invalid topic or format\n");
+	    				exit(1);
+	    			}
 	    			
 	    			//write at most 8 bytes, including the terminating null byte ('\0'), because tnn is composed of 1 or 2 digits
 	    			snprintf(ter_request, 8, "TER %d\n", tnn);
+	    			printf("%s", ter_request);
 	    			
 	    			/* TER Tnn - User–ECP Protocol (in UDP) */
 	    			n=sendto(fd_udp,ter_request,8,0,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
@@ -240,19 +249,24 @@ int main(int argc, char **argv) {
 	    	case  2: 
 	    			/* submit instruction */
 	    			
-					i = 0; 
-					getchar();
-					while ((v = getchar()) != '\n') {
-						answers[i++] = v; //answer values (V1 to V5) in the format "V1 V2 V3 V4 V5"
-					}
-					answers[i] = '\0';
+	    			getchar();
+	    			ptr = fgets(answers, sizeof(answers), stdin); //answer values (V1 to V5) in the format "V1 V2 V3 V4 V5"
+	    			if (ptr == NULL) exit(1);
+	    			//printf("%s", answers);
   					
+  					n = sscanf(answers, "%*c %*c %*c %*c %*c"); //FIXME I only checked the format...
+  					if (n == -1) {
+	    				printf("Invalid format\n");
+	    				exit(1);
+	    			}
+	    			
   					/* RQS SID QID V1 V2 V3 V4 V5 - User–TES Protocol (in TCP) */
   					
   					/* just for testing... */
   					QID = "12345678"; //FIXME
   					
   					n=sprintf(rqs_request, "RQS %d %s %s\n", SID, QID, answers);
+  					printf("%s", rqs_request);
   					
 	    			ptr=rqs_request;
 	    			nbytes=n+1;
@@ -265,6 +279,10 @@ int main(int argc, char **argv) {
 	    				ptr+=nwritten;
 	    			}
   					
+  					
+  					/* AQS QID score - User–TES Protocol (in TCP) */
+  					
+  					/* ... */
   					
   					break;
   						

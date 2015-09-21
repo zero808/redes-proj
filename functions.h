@@ -8,6 +8,7 @@ int action_selector();
 int parseString(char *line, char ***argv);
 void displayTopics(char ***argv);
 int verifyAWT(int toks, char ***argv);
+int verifyTnn(char *p);
 int verifyAWTES(int toks, char ***argv);
 
 #endif

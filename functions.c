@@ -118,3 +118,26 @@ int verifyAWTES(int toks, char ***argv) {
 	
 	return 0;
 }
+
+int verifyTnn(char *p) {
+
+	int tnn = 0;
+	
+	if(*p >= '1' && *p <= '9') {
+		tnn = tnn * 10 + *p - '0';
+		p++;
+	}
+	else
+		return -1;
+	
+	if(isdigit(*p)) {// (*p >= '0' && *p <= '9')
+		//tnn is composed of 2 digits
+		tnn = tnn * 10 + *p - '0';
+		p++;
+	}
+	    			
+	if(*p != '\n')
+		return -1;
+
+	return tnn;
+}
