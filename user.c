@@ -68,6 +68,7 @@ int main(int argc, char **argv) {
 
 	memset((void*)&serveraddr,(int)'\0',sizeof(serveraddr));
 	serveraddr.sin_family=AF_INET;
+	//serveraddr.sin_addr.s_addr=((struct in_addr*)(hostptr->h_addr_list[0]))->s_addr; //ECP server IP address
 	serveraddr.sin_addr.s_addr=((struct in_addr*)(hostptr->h_addr_list[0]))->s_addr; //ECP server IP address
 	serveraddr.sin_port=htons((u_short) ECPport);
 	
@@ -101,7 +102,7 @@ int main(int argc, char **argv) {
 	    			/* list instruction */
 	    			
 	    			/* TQR - User–ECP Protocol (in UDP) */	    			
-	    			n=sendto(fd_udp,"TQR\n",5,0,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
+	    			n=sendto(fd_udp,"TQR\n",4,0,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
 	    			if(n==-1)exit(1); //error
  
  					/* AWT nT T1 T2 ... TnT - User–ECP Protocol (in UDP) */
@@ -155,7 +156,10 @@ int main(int argc, char **argv) {
 	    			printf("%s", ter_request);
 	    			
 	    			/* TER Tnn - User–ECP Protocol (in UDP) */
-	    			n=sendto(fd_udp,ter_request,8,0,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
+				if(tnn > 9)
+					n=sendto(fd_udp,ter_request,7,0,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
+				else
+					n=sendto(fd_udp,ter_request,6,0,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
 	    			if(n==-1)exit(1); //error
 	    			
 	    			/* AWTES IPTES portTES - User–ECP Protocol (in UDP) */
