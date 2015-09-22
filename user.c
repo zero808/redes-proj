@@ -109,7 +109,8 @@ int main(int argc, char **argv) {
 					addrlen=sizeof(serveraddr);
 					n=recvfrom(fd_udp,buffer,4096,0,(struct sockaddr*)&serveraddr,&addrlen); //FIXME 4096
 					if(n==-1)exit(1);
-				
+					
+					buffer[n] = '\0';
 				
 					//TEST
 					printf("TEST ------------------------------------------------------------------\n");
@@ -145,27 +146,29 @@ int main(int argc, char **argv) {
 	    			ptr = fgets(topic, sizeof(topic), stdin);
 	    			if (ptr == NULL) exit(1);	
 	    			
-	    			tnn = verifyTnn(ptr);
+	    			tnn = verifyTnn(ptr); // 1 <= tnn <= 99
 	    			if (tnn == -1) {
 	    				printf("Invalid topic or format\n");
 	    				exit(1);
 	    			}
 	    			
-	    			//write at most 8 bytes, including the terminating null byte ('\0'), because tnn is composed of 1 or 2 digits
-	    			snprintf(ter_request, 8, "TER %d\n", tnn);
+	    			//write at most 7 bytes because tnn is composed of 1 or 2 digits ('\0' is not trasmitted) 
+	    			snprintf(ter_request, 7, "TER %d\n", tnn);
 	    			printf("%s", ter_request);
 	    			
 	    			/* TER Tnn - User–ECP Protocol (in UDP) */
-				if(tnn > 9)
-					n=sendto(fd_udp,ter_request,7,0,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
-				else
-					n=sendto(fd_udp,ter_request,6,0,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
+	    			if(tnn > 9)
+	    				n=sendto(fd_udp,ter_request,7,0,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
+	    			else
+	    				n=sendto(fd_udp,ter_request,6,0,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
 	    			if(n==-1)exit(1); //error
 	    			
 	    			/* AWTES IPTES portTES - User–ECP Protocol (in UDP) */
 	    			addrlen=sizeof(serveraddr);
 					n=recvfrom(fd_udp,buffer,128,0,(struct sockaddr*)&serveraddr,&addrlen);
 					if(n==-1)exit(1);
+	    			
+	    			buffer[n] = '\0';
 	    			 
 	    			/* breaks the ECP's AWTES reply into tokens */
   					n = parseString(buffer, &T);
@@ -205,11 +208,11 @@ int main(int argc, char **argv) {
 	    			n=connect(fd_tcp,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
 					if(n==-1)exit(1); //error
 	    			
-	    			//write 11 bytes, including the terminating null byte ('\0'), because SID is composed of 5 digits
+	    			// 'n' does not include the terminating null byte ('\0') automatically appended at the end of the string 
 	    			n=sprintf(rqt_request, "RQT %d\n", SID);
 	    			
 	    			ptr=rqt_request;
-	    			nbytes=n+1;//10+1
+	    			nbytes=n+1;//10 + 1 (additional byte for '\0')
 	    			
 	    			//printf("%s", ptr);
 	    			
