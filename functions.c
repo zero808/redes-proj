@@ -2,9 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <netinet/in.h> /* for INET_ADDRSTRLEN */
+#include <errno.h>
 
 #include "functions.h"
 
+extern int errno;
 extern char ECPname[];
 extern unsigned short int ECPport;
 
@@ -141,3 +143,144 @@ int verifyTnn(char *p) {
 
 	return tnn;
 }
+
+char* getTCPServerReply(int sockfd) {
+	char buffer[BUFFER_SIZE];
+	int nread = 0, message_size = 0;
+	int i, message_capacity = BUFFER_SIZE;
+	
+	//allocates memory for an array of BUFFER_SIZE bytes, and set to zero the allocated memory 
+	char *message = calloc(1, sizeof(char) * BUFFER_SIZE); 
+	if (message == NULL) exit(1);
+	
+	do {
+		
+		if((nread = read(sockfd, buffer, BUFFER_SIZE)) == -1) {	
+			free(message);
+			exit(1);//error
+		}
+		
+		if (nread > 0) {
+			for (i = 0; i < nread; i++) {
+				message[message_size + i] = buffer[i];
+			}
+			memset(buffer, 0, BUFFER_SIZE); //clear the buffer
+
+			message_size += nread;
+			if (message_size >= message_capacity) {
+				message_capacity += BUFFER_SIZE;
+				message = realloc(message, message_capacity);
+				if (message == NULL) exit(1);
+			}
+		}
+
+	//message ends with the character '\n', or when nread = 0 (closed by peer)
+	} while ((message[strlen(message)-1] != '\n') && nread > 0);
+	
+	//message[strlen(message)] = '\0';
+
+	return message;
+}
+
+int verifyAQT(int toks, char ***argv) { //AQT QID time size data
+	int size;
+	
+	if (toks == 5) {
+		size = atoi((*argv)[3]); //size of data
+	
+		if (strcmp((*argv)[0], "AQT") == 0  
+			&& (strlen((*argv)[1]) <= QID_SZ)
+			&& validTime((*argv)[2]) //validate time in format DDMMMYYYY_HH:MM:SS 
+			&& strlen((*argv)[4])-1 == size) //last token (data) includes byte '\n'
+			;
+		else
+			return -1;
+	}
+	else 
+		return -1;
+	
+	return 0;
+}
+
+//validate time in format DDMMMYYYY_HH:MM:SS
+int validTime(char *time) {
+
+	int n, dd, yyyy, hh, mm, ss;
+	char mmm[4];
+	
+	if(strlen(time) != 18)
+		return 0;
+	
+	errno = 0;
+	n = sscanf(time, "%2d%3s%4d_%2d:%2d:%2d", &dd, mmm, &yyyy, &hh, &mm, &ss); // '\0' is appended to mmm
+	if (n == -1) {
+		if (errno != 0) {
+			perror("sscanf");
+    	} else { 
+    		printf("Invalid time format\n");
+  			return 0;
+    	}
+    }
+
+ 	if (n != 6)
+ 		return 0;
+ 	
+	if (validTimeDate(dd, mmm, yyyy) == 0)
+		return 0;
+	
+	if (validTimeHour(hh, mm, ss) == 0)
+		return 0;	
+	
+	return 1;
+}
+
+int validTimeDate(int day, char* month, int year) {
+	int m;
+	
+	if((m = validMonth(month)) != 0) {
+		if(day >= 1 && day <= daysMonth(m, year))
+			return 1;
+	}
+
+	return 0;
+}
+
+int validMonth(char* m) {
+
+	enum months { JAN = 1, FEB, MAR, APR, MAY, JUN, JUL, AUG, SEP, OCT, NOV, DEC };
+	enum months month;
+		
+	const char *monthName[] = { "", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC" };
+	
+	for (month = JAN; month <= DEC; month++) {
+		if (strcmp(m, monthName[month]) == 0)
+			return month; // 1 <= month <= 12
+	}
+	
+	return 0; //not valid
+}
+
+int daysMonth(int month, int year) {
+	if (month == 4 || month == 6 || month == 9 || month == 11)
+		return 30;
+	
+	if (month == 2)
+		return ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0) ? 29 : 28;
+	
+	return 31;  
+}
+
+int validTimeHour(int hour, int min, int sec) {
+
+	if (hour < 0 || hour > 23)
+		return 0;
+		
+	if (min < 0 || min > 59)
+		return 0;
+		
+	if (sec < 0 || sec > 59)
+		return 0;
+		
+	return 1;
+}
+

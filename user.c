@@ -226,31 +226,21 @@ int main(int argc, char **argv) {
 	    			}
 	    			
 	    			/* AQT QID time size data - User–TES Protocol (in TCP) */
-	    			//TODO
+	    			ptr = getTCPServerReply(fd_tcp);
 	    			
-	    			/* ... */
+	    			//ptr[strlen(ptr)] = '\0';
+	    			//printf("strlen of reply: %d reply: %s", (int)strlen(ptr), ptr);
 	    			
-	    			/* verify protocol message received */
-  					//verifyAQT();
+	    			//breaks the TES's AQT reply into tokens
+	    			n = parseString(ptr, &T);
 	    			
-	    			
-	    			/*
-	    			nleft=nbytes; ptr=&buffer[0];
+	    			//verify received protocol message
+	    			n=verifyAQT(n, &T);
+	    			if(n==-1) {
+	    				printf("Invalid AQT reply from TES\n");
+	    				exit(1);
+	    			}
 
-					while(nleft>0){
-						nread=read(fd_tcp,ptr,nleft);
-						if(nread==-1)exit(1); //error
-						else if(nread==0)break; //closed by peer
-						nleft-=nread;
-						ptr+=nread;
-					}
-
-					nread=nbytes-nleft;
-	
-					write(1,"echo from TES: ",15); //stdout
-					write(1,buffer,nread);
-	    			*/
-	    			
 	    			break;
 	    			
 	    	case  2: 

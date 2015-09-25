@@ -8,5 +8,6 @@
 #define NB_TOPICS 99
 #define TOPIC_NAME_SZ 25
 #define QID_SZ 24
+#define BUFFER_SIZE 32
 
 #endif 
