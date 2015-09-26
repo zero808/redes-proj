@@ -111,6 +111,16 @@ int main(int argc, char **argv) {
 					if(n==-1)exit(1);
 					
 					buffer[n] = '\0';
+					
+					if (strcmp(buffer, "ERR\n") == 0) {
+						printf("The TQR request is not correctly formulated\n");
+						exit(1);
+					}
+					
+					if (strcmp(buffer, "EOF\n") == 0) {
+						printf("The TQR request cannot be answered\n");
+						exit(1);
+					}
 				
 					//TEST
 					printf("TEST ------------------------------------------------------------------\n");
@@ -154,7 +164,7 @@ int main(int argc, char **argv) {
 	    			
 	    			//write at most 7 bytes because tnn is composed of 1 or 2 digits ('\0' is not trasmitted) 
 	    			snprintf(ter_request, 7, "TER %d\n", tnn);
-	    			printf("%s", ter_request);
+	    			//printf("%s", ter_request);
 	    			
 	    			/* TER Tnn - User–ECP Protocol (in UDP) */
 	    			if(tnn > 9)
@@ -169,7 +179,17 @@ int main(int argc, char **argv) {
 					if(n==-1)exit(1);
 	    			
 	    			buffer[n] = '\0';
-	    			 
+	    			
+	    			if (strcmp(buffer, "ERR\n") == 0) {
+						printf("The TER request is not correctly formulated\n");
+						exit(1);
+					}
+					
+					if (strcmp(buffer, "EOF\n") == 0) {
+						printf("The TER request cannot be answered\n");
+						exit(1);
+					}
+	    			
 	    			/* breaks the ECP's AWTES reply into tokens */
   					n = parseString(buffer, &T);
   					
@@ -227,6 +247,11 @@ int main(int argc, char **argv) {
 	    			
 	    			/* AQT QID time size data - User–TES Protocol (in TCP) */
 	    			ptr = getTCPServerReply(fd_tcp);
+	    			
+	    			if (strcmp(ptr, "ERR\n") == 0) {
+						printf("The RQT request is not correctly formulated\n");
+						exit(1);
+					}
 	    			
 	    			//ptr[strlen(ptr)] = '\0';
 	    			//printf("strlen of reply: %d reply: %s", (int)strlen(ptr), ptr);
