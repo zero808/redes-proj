@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
 	const char *iptes_addr;
 	unsigned short int portTES;
 	char rqt_request[8];
-	char *QID; //unique transaction identifier string
+	char QID[QID_SZ+1]; //unique transaction identifier string
 	char rqs_request[128];
 	
 	
@@ -212,7 +212,7 @@ int main(int argc, char **argv) {
 	    			n=sprintf(rqt_request, "RQT %d\n", SID);
 	    			
 	    			ptr=rqt_request;
-	    			nbytes=n+1;//10 + 1 (additional byte for '\0')
+	    			nbytes=n;//10 ('\0' is not transmitted)
 	    			
 	    			//printf("%s", ptr);
 	    			
@@ -240,6 +240,8 @@ int main(int argc, char **argv) {
 	    				printf("Invalid AQT reply from TES\n");
 	    				exit(1);
 	    			}
+	    			
+	    			strcpy(QID, T[1]);
 
 	    			break;
 	    			
@@ -251,7 +253,7 @@ int main(int argc, char **argv) {
 	    			if (ptr == NULL) exit(1);
 	    			//printf("%s", answers);
   					
-  					n = sscanf(answers, "%*c %*c %*c %*c %*c"); //FIXME I only checked the format...
+  					n = sscanf(answers, "%*c %*c %*c %*c %*c"); //check format
   					if (n == -1) {
 	    				printf("Invalid format\n");
 	    				exit(1);
@@ -259,14 +261,11 @@ int main(int argc, char **argv) {
 	    			
   					/* RQS SID QID V1 V2 V3 V4 V5 - User–TES Protocol (in TCP) */
   					
-  					/* just for testing... */
-  					QID = "12345678"; //FIXME
-  					
   					n=sprintf(rqs_request, "RQS %d %s %s\n", SID, QID, answers);
-  					printf("%s", rqs_request);
+  					//printf("%s", rqs_request);
   					
 	    			ptr=rqs_request;
-	    			nbytes=n+1;
+	    			nbytes=n; //20+strlen(QID) ('\0' is not transmitted)
 	    			
 	    			nleft=nbytes;
 	    			while(nleft>0) {
@@ -275,7 +274,6 @@ int main(int argc, char **argv) {
 	    				nleft-=nwritten;
 	    				ptr+=nwritten;
 	    			}
-  					
   					
   					/* AQS QID score - User–TES Protocol (in TCP) */
   					
