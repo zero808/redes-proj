@@ -17,7 +17,7 @@
 #define TES_NUMBER 1
 
 extern int errno;
-const char * QF[NUM_OF_FILES][NUM_OF_QUESTIONS] = { {"A","A","A","A","A"},{ "A","B","C","D","N"} };
+const char * CORRECT_ANSWERS[NUM_OF_FILES][NUM_OF_QUESTIONS] = { {"A","A","A","A","A"},{ "A","B","C","D","N"} };
 const char * TOPIC_NAME = "Network Programming";
 
 int comparedates(struct tm *actual, struct tm *deadline) {
@@ -39,7 +39,31 @@ int comparedates(struct tm *actual, struct tm *deadline) {
 	}
 	return (0);
 }
-					
+
+char * createQID() {
+	//QID: DDMMHHMMSS ex: 2609195001 (10 numbers)
+	char * qid;
+	time_t rawtime;
+	struct tm *currenttime;
+	time(&rawtime);
+	currenttime = localtime(&rawtime);
+	char* day, mon, hour, min, sec;
+
+	if (currenttime->tm_mday < 10)sprintf(day, "0%d", currenttime->tm_mday);
+	if (currenttime->tm_mon + 1 < 10)sprintf(day, "0%d", currenttime->tm_mon + 1);
+	if (currenttime->tm_hour < 10)sprintf(day, "0%d", currenttime->tm_hour);
+	if (currenttime->tm_min < 10)sprintf(day, "0%d", currenttime->tm_min);
+	if (currenttime->tm_sec < 10)sprintf(day, "0%d", currenttime->tm_sec);
+
+	sprintf(day, "%d", currenttime->tm_mday);
+	sprintf(day, "%d", currenttime->tm_mon + 1);
+	sprintf(day, "%d", currenttime->tm_hour);
+	sprintf(day, "%d", currenttime->tm_min);
+	sprintf(day, "%d", currenttime->tm_sec);
+
+	sprintf(qid, "%s%s%s%s%s", day, mon, hour, min, sec);
+	return qid;
+}
 
 int main(int argc, char **argv) {
 
@@ -50,7 +74,7 @@ int main(int argc, char **argv) {
 	ssize_t rcvd_bytes;
 	ssize_t send_bytes;
 
-	char *SID, *QID, *deadline, *data, *filename;
+	char *SID, *QID, *deadline, *data=NULL, *filename;
 	int size, score = 0;
 
 	time_t rawtime;
@@ -120,7 +144,7 @@ int main(int argc, char **argv) {
 			while (ch != NULL) {
 				arr[i] = ch;
 				i++;
-				ch = strtok(NULL, " ,");
+				ch = strtok(NULL, " ");
 			}
 
 			/* USER-TES: RQT SID
@@ -133,36 +157,11 @@ int main(int argc, char **argv) {
 				num = rand() % (NUM_OF_FILES + 1);//choose randomly 1 of available questionnaires
 
 				sprintf(filename, "/home/User/Desktop/T%dQF%d.pdf", TES_NUMBER, num);
-
-				//todo data em binario conteudo do questionario 
-				/*char sdbuf[MAX_BUF]; // Send buffer
-				printf("[TES] Sending %s to the Student...", filename);
-				FILE *fs = fopen(filename, "r");
-				if (fs == NULL){
-				printf("ERROR: File %s not found on server.\n", filename);
-				exit(1);
-				}
-
-				bzero(sdbuf, MAX_BUF);
-				int fs_block_sz;
-				while ((fs_block_sz = fread(sdbuf, sizeof(char), MAX_BUF, fs))>0){
-				if (send(newfd, sdbuf, fs_block_sz, 0) < 0){
-				printf("ERROR: Failed to send file %s.\n", filename);
-				exit(1);
-				}
-				bzero(sdbuf, MAX_BUF);
-				}
-				printf("Ok sent to client!\n");
-				*/
+				
 				time(&rawtime);
 				deadlinetime = localtime(&rawtime);
 				//QID: unique transaction identifier (current time)
-				sprintf(QID, "%d%d%d%d%d%d", deadlinetime->tm_mday,
-					deadlinetime->tm_mon + 1,
-					deadlinetime->tm_year + 1900,
-					deadlinetime->tm_hour,
-					deadlinetime->tm_min,
-					deadlinetime->tm_sec);
+				strcpy(QID, createQID());
 				//deadline: current time + 15min
 				deadlinetime->tm_min += 15;
 				sprintf(deadline, "%d%d%d_%d:%d:%d", deadlinetime->tm_mday,
@@ -172,17 +171,34 @@ int main(int argc, char **argv) {
 					deadlinetime->tm_min,
 					deadlinetime->tm_sec);
 
-				/* file size in bytes */
-				struct stat st;
-				stat(filename, &st);
-				size = st.st_size;
+				FILE *handler = fopen(filename, "r");
+				if (handler == NULL)exit(1);
+				char *data = NULL;
+				int read_size;
+				
+				fseek(handler, 0, SEEK_END);
+				size = ftell(handler);
+				rewind(handler);
 
-				//todo data
-				sprintf(send_str, "AQT %s %s %d %s\n", QID, deadline, size, data);
+				//allocate a string that can hold it all
+				data = (char*)malloc(sizeof(char) * (size + 1));
+				//read it all in one operation
+				read_size = fread(data, sizeof(char), size, handler);
+				data[size] = '\n';
+
+				if (size != read_size) {
+					//something went wrong, throw away the memory and set
+					//the buffer to NULL
+					free(data);
+					data = NULL;
+				}
+				
+				sprintf(send_str, "AQT %s %s %d %s ", QID, deadline, size, data);
 
 				while ((send_bytes = write(newfd, send_str, MAX_BUF)) != 0) {
 					if (send_bytes = -1)exit(1);//error
 				}
+
 			}
 
 			/* USER-TES: RQS SID QID V1 V2 V3 V4 V5
@@ -205,13 +221,12 @@ int main(int argc, char **argv) {
 				currenttime = localtime(&rawtime);
 				if (comparedates(currenttime, deadlinetime) == -1) score = -1;
 				else {
-
 					for (i = 0; i < 5; i++) {
-						if (strcmp(QF[num][i], arr[i + 3]) == 0)score += 20;
+						if (strcmp(CORRECT_ANSWERS[num][i], arr[i + 3]) == 0)score += 20;
 					}
 				}
 				sprintf(send_str, "AQS %s %d\n", QID, score);
-				printf("%s Score: %d%\n", SID, score);
+				//printf("%s Score: %d%\n", SID, score);
 
 				while ((send_bytes = write(newfd, send_str, MAX_BUF)) != 0) {
 					if (send_bytes = -1)exit(1);//error
@@ -251,10 +266,10 @@ int main(int argc, char **argv) {
 				while (chh != NULL) {
 					array[k] = chh;
 					k++;
-					chh = strtok(NULL, " ,");
+					chh = strtok(NULL, " ");
 				}
 				if (strcmp(array[0], "AWI") == 0 && strcmp(array[1], QID) == 0) {
-					close(fd); exit(0);
+					close(fd); 
 				}
 				else {
 					while ((send_bytes = sendto(fd,"ERR\n", 4, 0, (struct sockaddr*)&clientaddr, clientlen)) != 0) {
