@@ -50,15 +50,14 @@ int action_selector() {
 }
 
 
-int parseString(char *line, char ***argv) {
+int parseString(char *line, char ***argv, int max_toks) {
 	char *buffer;
-	int argc, max_toks;
+	int argc;
 	const char delim[] = " \t";
 	
 	buffer = (char*) malloc((strlen(line) + 1) * sizeof(char));
 	strcpy(buffer,line);
 	
-	max_toks = NB_TOPICS + 2;
 	*argv = (char**) malloc(max_toks * sizeof(char**));
 	
 	argc = 0;
@@ -74,9 +73,7 @@ void displayTopics(char ***argv) {
 	
 	/* display questionnaire topics as a numbered list */
 	for (i = 0; i < nt; ++i) {
-		printf("%d- %s",i+1, (*argv)[i+2]);
-		if(i < nt-1) //last token includes byte '\n'
-		printf("\n");
+		printf("%d- %s\n",i+1, (*argv)[i+2]);
     }
 }
 
@@ -185,7 +182,7 @@ int verifyAQT(char *aqt_reply, char ***argv) { //AQT QID time size data
 	int n;
 	
 	//breaks the AQT reply into tokens
-	n = parseString(aqt_reply, argv);
+	n = parseString(aqt_reply, argv, 5+1);
 	if (n == 5) {
 		int size;
 		size = atoi((*argv)[3]); //size of data
@@ -291,7 +288,7 @@ int verifyQuestAnswers(char *answers, char ***argv) {
 	int n;
 	
 	//check only format (answers values will be checked by TES)
-  	n = parseString(answers, argv);
+  	n = parseString(answers, argv, 5+1);
   	if (n == 5) {
   		char str[128];
   		sprintf(str, "%s %s %s %s %s", (*argv)[0], (*argv)[1], (*argv)[2], (*argv)[3], (*argv)[4]);
@@ -311,7 +308,7 @@ int verifyAQS(char *aqs_reply, char ***argv, char *qid) { //AQS QID score
 	int n;
 	
 	//breaks the AQS reply into tokens
-  	n = parseString(aqs_reply, argv);
+  	n = parseString(aqs_reply, argv, 3+1);
 	if (n == 3) {
 		char str[128];
 		sprintf(str, "%s %s %s", (*argv)[0], (*argv)[1], (*argv)[2]);
@@ -336,19 +333,19 @@ int verifyAQS(char *aqs_reply, char ***argv, char *qid) { //AQS QID score
 
 int checkErrorMessages(char* reply, char* request) {
 
-	if (strcmp(reply, "ERR\n") == 0) {
+	if (strcmp(reply, "ERR") == 0) {
 		printf("The %s request is not correctly formulated\n", request);
 		return -1;
 	}
 		
 	if (strcmp(request, "TQR") == 0 || strcmp(request, "TER") == 0) {
-		if (strcmp(reply, "EOF\n") == 0) {
+		if (strcmp(reply, "EOF") == 0) {
 			printf("The %s request cannot be answered\n", request);
 			return -1;
 		}
 	}
 
-	if (strcmp(request, "RQS") == 0 && strcmp(reply, "-1\n") == 0) {
+	if (strcmp(request, "RQS") == 0 && strcmp(reply, "-1") == 0) {
 		printf("Questionnaire submitted after the deadline\n");
 		return -1;
 	}

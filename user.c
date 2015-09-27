@@ -105,19 +105,24 @@ int main(int argc, char **argv) {
 	    			/* TQR - User–ECP Protocol (in UDP) */	    			
 	    			n=sendto(fd_udp,"TQR\n",4,0,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
 	    			if(n==-1)exit(1); //error
- 
+
  					/* AWT nT T1 T2 ... TnT - User–ECP Protocol (in UDP) */
 					addrlen=sizeof(serveraddr);
 					n=recvfrom(fd_udp,buffer,4096,0,(struct sockaddr*)&serveraddr,&addrlen); //FIXME 4096
 					if(n==-1)exit(1);
 					
+					if (buffer[n-1] == '\n')
+						buffer[n-1] = '\0'; //replace '\n' with '\0'
+					else
+						exit(1);
+					
 					n = checkErrorMessages(buffer, "TQR");
 					if(n==-1) exit(1);
-					
-					buffer[n] = '\0';
 				
 					/* breaks the ECP's AWT reply into tokens */
-  					n = parseString(buffer, &T); 
+					//a valid AWT reply can be divided at most into NB_TOPICS + 2 tokens
+					//+1 to detect invalid AWT reply
+  					n = parseString(buffer, &T, NB_TOPICS + 2 + 1); 
   					
   					/* verify received protocol message */
   					n=verifyAWT(n, &T);
@@ -157,13 +162,18 @@ int main(int argc, char **argv) {
 					n=recvfrom(fd_udp,buffer,128,0,(struct sockaddr*)&serveraddr,&addrlen);
 					if(n==-1)exit(1);
 	    			
+	    			if (buffer[n-1] == '\n')
+						buffer[n-1] = '\0'; //replace '\n' with '\0'
+					else
+						exit(1);
+	    			
 					n = checkErrorMessages(buffer, "TER");
 					if(n==-1) exit(1);
 	    			
-	    			buffer[n] = '\0';
+	    			//buffer[n] = '\0';
 	    			
 	    			/* breaks the ECP's AWTES reply into tokens */
-  					n = parseString(buffer, &T);
+  					n = parseString(buffer, &T, 4);
   					
   					/* verify received protocol message */
   					n=verifyAWTES(n, &T);
@@ -220,10 +230,10 @@ int main(int argc, char **argv) {
 	    			/* AQT QID time size data - User–TES Protocol (in TCP) */
 	    			ptr = getTCPServerReply(fd_tcp);
 	    			
+	    			ptr[strlen(ptr)-1] = '\0'; //replace '\n' with '\0'
+	    			
 	    			n = checkErrorMessages(ptr, "RQT");
 					if(n==-1) exit(1);
-					
-	    			ptr[strlen(ptr)-1] = '\0'; //replace '\n' with '\0'
 	    			
 	    			//verify received protocol message
 	    			n = verifyAQT(ptr, &T);
@@ -269,10 +279,10 @@ int main(int argc, char **argv) {
   					/* AQS QID score - User–TES Protocol (in TCP) */
   					ptr = getTCPServerReply(fd_tcp);
   					
+  					ptr[strlen(ptr)-1] = '\0'; //replace '\n' with '\0'
+  					
   					n = checkErrorMessages(ptr, "RQS");
 					if(n==-1) exit(1);
-  					
-  					ptr[strlen(ptr)-1] = '\0'; //replace '\n' with '\0'
   					
   					//verify received protocol message
   					n=verifyAQS(ptr, &T, QID);

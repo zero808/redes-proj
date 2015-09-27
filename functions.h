@@ -5,7 +5,7 @@
 
 int cmd_manager(int index, char **argv);
 int action_selector();
-int parseString(char *line, char ***argv);
+int parseString(char *line, char ***argv, int max_toks);
 void displayTopics(char ***argv);
 int verifyAWT(int toks, char ***argv);
 int verifyTnn(char *p);
