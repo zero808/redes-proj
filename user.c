@@ -75,7 +75,8 @@ int main(int argc, char **argv) {
 	int action;
 	char topic[4];
 	int tnn; //desired questionnaire topic number (between 1 and 99)
-	char answers[NB_ANSWERS*2];//sequence of answers values (V1 to V5) in the format "V1 V2 V3 V4 V5"
+	char answers[128];
+	//char answers[NB_ANSWERS*2];//sequence of answers values (V1 to V5) in the string format "V1 V2 V3 V4 V5"
 	char **T; //ECP's TQR reply into tokens
 	int nt; //number of topics
 	char ter_request[8];
@@ -110,33 +111,11 @@ int main(int argc, char **argv) {
 					n=recvfrom(fd_udp,buffer,4096,0,(struct sockaddr*)&serveraddr,&addrlen); //FIXME 4096
 					if(n==-1)exit(1);
 					
+					n = checkErrorMessages(buffer, "TQR");
+					if(n==-1) exit(1);
+					
 					buffer[n] = '\0';
-					
-					if (strcmp(buffer, "ERR\n") == 0) {
-						printf("The TQR request is not correctly formulated\n");
-						exit(1);
-					}
-					
-					if (strcmp(buffer, "EOF\n") == 0) {
-						printf("The TQR request cannot be answered\n");
-						exit(1);
-					}
 				
-					//TEST
-					printf("TEST ------------------------------------------------------------------\n");
-					write(1,"echo from ECP: ",15);
-					write(1,buffer,n); 
-					
-					/* check who sent the message */
-					hostptr=gethostbyaddr((char*)&serveraddr.sin_addr,sizeof(struct in_addr),AF_INET);
-					if(hostptr==NULL)
-						printf("sent by [%s:%hu]\n",inet_ntoa(serveraddr.sin_addr),ntohs(serveraddr.sin_port));
-					else 
-						printf("sent by [%s:%hu]\n",hostptr->h_name,ntohs(serveraddr.sin_port));
-					printf("----------------------------------------------------------- end of TEST\n");
-					//end of TEST
-					
-
 					/* breaks the ECP's AWT reply into tokens */
   					n = parseString(buffer, &T); 
   					
@@ -178,17 +157,10 @@ int main(int argc, char **argv) {
 					n=recvfrom(fd_udp,buffer,128,0,(struct sockaddr*)&serveraddr,&addrlen);
 					if(n==-1)exit(1);
 	    			
-	    			buffer[n] = '\0';
+					n = checkErrorMessages(buffer, "TER");
+					if(n==-1) exit(1);
 	    			
-	    			if (strcmp(buffer, "ERR\n") == 0) {
-						printf("The TER request is not correctly formulated\n");
-						exit(1);
-					}
-					
-					if (strcmp(buffer, "EOF\n") == 0) {
-						printf("The TER request cannot be answered\n");
-						exit(1);
-					}
+	    			buffer[n] = '\0';
 	    			
 	    			/* breaks the ECP's AWTES reply into tokens */
   					n = parseString(buffer, &T);
@@ -248,20 +220,14 @@ int main(int argc, char **argv) {
 	    			/* AQT QID time size data - User–TES Protocol (in TCP) */
 	    			ptr = getTCPServerReply(fd_tcp);
 	    			
-	    			if (strcmp(ptr, "ERR\n") == 0) {
-						printf("The RQT request is not correctly formulated\n");
-						exit(1);
-					}
-	    			
-	    			//ptr[strlen(ptr)] = '\0';
-	    			//printf("strlen of reply: %d reply: %s", (int)strlen(ptr), ptr);
-	    			
-	    			//breaks the TES's AQT reply into tokens
-	    			n = parseString(ptr, &T);
+	    			n = checkErrorMessages(ptr, "RQT");
+					if(n==-1) exit(1);
+					
+	    			ptr[strlen(ptr)-1] = '\0'; //replace '\n' with '\0'
 	    			
 	    			//verify received protocol message
-	    			n=verifyAQT(n, &T);
-	    			if(n==-1) {
+	    			n = verifyAQT(ptr, &T);
+	    			if(n == -1) {
 	    				printf("Invalid AQT reply from TES\n");
 	    				exit(1);
 	    			}
@@ -276,15 +242,15 @@ int main(int argc, char **argv) {
 	    			getchar();
 	    			ptr = fgets(answers, sizeof(answers), stdin); //answer values (V1 to V5) in the format "V1 V2 V3 V4 V5"
 	    			if (ptr == NULL) exit(1);
-	    			//printf("%s", answers);
+	    			//printf("ptr:%s", ptr);
   					
-  					n = sscanf(answers, "%*c %*c %*c %*c %*c"); //check format
-  					if (n == -1) {
-	    				printf("Invalid format\n");
-	    				exit(1);
-	    			}
+  					n = verifyQuestAnswers(ptr, &T);
+  					if(n == -1) {
+						printf("Invalid answers\n");
+						break;
+					}
 	    			
-  					/* RQS SID QID V1 V2 V3 V4 V5 - User–TES Protocol (in TCP) */
+	    			/* RQS SID QID V1 V2 V3 V4 V5 - User–TES Protocol (in TCP) */
   					
   					n=sprintf(rqs_request, "RQS %d %s %s\n", SID, QID, answers);
   					//printf("%s", rqs_request);
@@ -301,9 +267,22 @@ int main(int argc, char **argv) {
 	    			}
   					
   					/* AQS QID score - User–TES Protocol (in TCP) */
+  					ptr = getTCPServerReply(fd_tcp);
   					
-  					/* ... */
+  					n = checkErrorMessages(ptr, "RQS");
+					if(n==-1) exit(1);
   					
+  					ptr[strlen(ptr)-1] = '\0'; //replace '\n' with '\0'
+  					
+  					//verify received protocol message
+  					n=verifyAQS(ptr, &T, QID);
+					if(n==-1) {
+						printf("Invalid AQS reply from TES\n");
+						exit(1);
+					}
+					
+					printf("Obtained score: %d%%\n", atoi(T[2]));
+	
   					break;
   						
 	    	case  3: 	

@@ -53,16 +53,17 @@ int action_selector() {
 int parseString(char *line, char ***argv) {
 	char *buffer;
 	int argc, max_toks;
+	const char delim[] = " \t";
 	
-	buffer = (char*) malloc(strlen(line) * sizeof(char));
+	buffer = (char*) malloc((strlen(line) + 1) * sizeof(char));
 	strcpy(buffer,line);
 	
 	max_toks = NB_TOPICS + 2;
 	*argv = (char**) malloc(max_toks * sizeof(char**));
 	
 	argc = 0;
-	(*argv)[argc++] = strtok(buffer, " ");
-	while ((((*argv)[argc] = strtok(NULL, " ")) != NULL) && (argc < max_toks))
+	(*argv)[argc++] = strtok(buffer, delim);
+	while ((((*argv)[argc] = strtok(NULL, delim)) != NULL) && (argc < max_toks))
 		++argc;
 	
 	return argc;
@@ -176,22 +177,23 @@ char* getTCPServerReply(int sockfd) {
 
 	//message ends with the character '\n', or when nread = 0 (closed by peer)
 	} while ((message[strlen(message)-1] != '\n') && nread > 0);
-	
-	//message[strlen(message)] = '\0';
 
 	return message;
 }
 
-int verifyAQT(int toks, char ***argv) { //AQT QID time size data
-	int size;
+int verifyAQT(char *aqt_reply, char ***argv) { //AQT QID time size data
+	int n;
 	
-	if (toks == 5) {
+	//breaks the AQT reply into tokens
+	n = parseString(aqt_reply, argv);
+	if (n == 5) {
+		int size;
 		size = atoi((*argv)[3]); //size of data
 	
 		if (strcmp((*argv)[0], "AQT") == 0  
 			&& (strlen((*argv)[1]) <= QID_SZ)
 			&& validTime((*argv)[2]) //validate time in format DDMMMYYYY_HH:MM:SS 
-			&& strlen((*argv)[4])-1 == size) //last token (data) includes byte '\n'
+			&& strlen((*argv)[4]) == size) //last token (data) does NOT include byte '\n'
 			;
 		else
 			return -1;
@@ -284,3 +286,72 @@ int validTimeHour(int hour, int min, int sec) {
 	return 1;
 }
 
+int verifyQuestAnswers(char *answers, char ***argv) {
+	
+	int n;
+	
+	//check only format (answers values will be checked by TES)
+  	n = parseString(answers, argv);
+  	if (n == 5) {
+  		char str[128];
+  		sprintf(str, "%s %s %s %s %s", (*argv)[0], (*argv)[1], (*argv)[2], (*argv)[3], (*argv)[4]);
+  		//printf("str:%s", str);
+  		if (strcmp(answers, str) != 0) {
+  			return -1; //invalid format
+  		}
+	}
+	else
+		return -1;
+	
+	return 0;
+}
+
+int verifyAQS(char *aqs_reply, char ***argv, char *qid) { //AQS QID score
+
+	int n;
+	
+	//breaks the AQS reply into tokens
+  	n = parseString(aqs_reply, argv);
+	if (n == 3) {
+		char str[128];
+		sprintf(str, "%s %s %s", (*argv)[0], (*argv)[1], (*argv)[2]);
+		
+		if (strcmp(aqs_reply, str) != 0)
+			return -1; //invalid format
+		
+		int score;
+		score = atoi((*argv)[2]); //last token (score) does NOT include byte '\n'
+	
+		if (strcmp((*argv)[0], "AQS") == 0  
+			&& strcmp((*argv)[1], qid) == 0
+			&& (score >= 0 && score <= 100)) ;
+		else
+			return -1;
+	}
+	else 
+		return -1;
+	
+	return 0;
+}
+
+int checkErrorMessages(char* reply, char* request) {
+
+	if (strcmp(reply, "ERR\n") == 0) {
+		printf("The %s request is not correctly formulated\n", request);
+		return -1;
+	}
+		
+	if (strcmp(request, "TQR") == 0 || strcmp(request, "TER") == 0) {
+		if (strcmp(reply, "EOF\n") == 0) {
+			printf("The %s request cannot be answered\n", request);
+			return -1;
+		}
+	}
+
+	if (strcmp(request, "RQS") == 0 && strcmp(reply, "-1\n") == 0) {
+		printf("Questionnaire submitted after the deadline\n");
+		return -1;
+	}
+	
+	return 0;
+}

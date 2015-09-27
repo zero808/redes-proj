@@ -11,12 +11,15 @@ int verifyAWT(int toks, char ***argv);
 int verifyTnn(char *p);
 int verifyAWTES(int toks, char ***argv);
 char* getTCPServerReply(int sockfd);
-int verifyAQT(int toks, char ***argv);
+int verifyAQT(char *aqt_reply, char ***argv);
 int validTime(char *time);
 int validTimeDate(int day, char* month, int year);
 int validMonth(char* month);
 int daysMonth(int month, int year);
 int validTimeHour(int hour, int min, int sec);
+int verifyQuestAnswers(char *answers, char ***argv);
+int verifyAQS(char *aqs_reply, char ***argv, char *qid);
+int checkErrorMessages(char* reply, char* request);
 
 #endif
 
