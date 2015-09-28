@@ -65,16 +65,54 @@ char * createQID() {
 	return qid;
 }
 
+			
+char *readTCPclient(int sockfd) {
+	char buffer[MAX_BUF];
+	int nread = 0;
+	int message_size = 0;
+	int i, message_capacity = MAX_BUF;
+	//allocates memory for an array of 1 element of BUFFER_SIZE bytes, and set to zero the allocated memory 
+	char *message = calloc(1, sizeof(char) * MAX_BUF); 
+
+	while ((nread = read(sockfd, buffer, MAX_BUF)) != 0) {
+		if(nread==-1) {	//error
+			free(message);
+			exit(1);
+		} 
+		
+		for (i = 0; i < nread; i++) {
+			message[message_size + i] = buffer[i];
+		}
+		memset(buffer, 0, MAX_BUF);
+
+		message_size += nread;
+		if (message_size >= message_capacity) {
+			message_capacity += MAX_BUF;
+			message = realloc(message, message_capacity);
+		}
+		
+		//message ends with the character '\n'
+		if(message[strlen(message)-1] == '\n')
+			break;
+	}
+
+	return message;
+}
+
+
+
+
 int main(int argc, char **argv) {
 
-	int fd, newfd, clientlen, n, nw, ret, num;
+	int fd, newfd, clientlen, n, nw, ret, num, nbytes, nleft;
 	struct sockaddr_in serveraddr, clientaddr;
 	unsigned short int TESport = PORT;
 
 	ssize_t rcvd_bytes;
 	ssize_t send_bytes;
 
-	char *SID, *QID, *deadline, *data=NULL, *filename;
+	//char *SID, *QID, *deadline, *data=NULL, *filename;
+	char SID[5+1], *QID, deadline[18+1], *data=NULL, filename[12+1];
 	int size, score = 0;
 
 	time_t rawtime;
@@ -133,13 +171,28 @@ int main(int argc, char **argv) {
 									
 								/* USER-TES Protocol (in TCP) */
 
+
+			/*-------------------------------------------------------*/
+			
+			// doesn't work...
+			/*
 			while ((rcvd_bytes = read(newfd, recv_str, MAX_BUF)) != 0) {
 				if (rcvd_bytes = -1)exit(1);//error
 			}
+			*/
 
+
+			ptr = readTCPclient(newfd);
+			printf("TEST: received from user: «%s»\n", ptr);
+
+			ptr[strlen(ptr)-1] = '\0'; //replace '\n' with '\0'
+			printf("TEST: after replacing newline with NULL char: «%s»\n", ptr);
+			/*-------------------------------------------------------*/
+
+			//we can use parseString() from functions.c...
 			char* arr[8];
 			char * ch;
-			ch = strtok(recv_str, " ");
+			ch = strtok(ptr, " ");
 			int i = 0;
 			while (ch != NULL) {
 				arr[i] = ch;
@@ -147,23 +200,36 @@ int main(int argc, char **argv) {
 				ch = strtok(NULL, " ");
 			}
 
+
 			/* USER-TES: RQT SID
 			TES-USER: AQT QID time size data */
 
 			if (strcmp(arr[0], "RQT") == 0 && atoi(arr[1]) < 100000 && atoi(arr[1]) > 9999) {
-
 				strcpy(SID, arr[1]);
-				
+				printf("TEST: received SID «%s»\n", SID);
 				num = rand() % (NUM_OF_FILES + 1);//choose randomly 1 of available questionnaires
 
-				sprintf(filename, "/home/User/Desktop/T%dQF%d.pdf", TES_NUMBER, num);
+				//sprintf(filename, "/home/User/Desktop/T%dQF%d.pdf", TES_NUMBER, num);
+				sprintf(filename, "T%dQF%d.pdf", TES_NUMBER, num);
+				
+				printf("TEST filename to send: «%s»\n", filename);
+				
 				
 				time(&rawtime);
 				deadlinetime = localtime(&rawtime);
+				
+				//createQID() is not working...
+				
+/*				
 				//QID: unique transaction identifier (current time)
-				strcpy(QID, createQID());
+				strcpy(QID, createQID()); //FIXME
+				
+				//createQID() is not working...
+				printf("TEST QID creation: QID=<%s>\n", QID);
+				
 				//deadline: current time + 15min
 				deadlinetime->tm_min += 15;
+				
 				sprintf(deadline, "%d%d%d_%d:%d:%d", deadlinetime->tm_mday,
 					deadlinetime->tm_mon + 1,
 					deadlinetime->tm_year + 1900,
@@ -171,6 +237,9 @@ int main(int argc, char **argv) {
 					deadlinetime->tm_min,
 					deadlinetime->tm_sec);
 
+				//just a test...
+				printf("TEST time to send: %s\n", deadline);
+*/
 				FILE *handler = fopen(filename, "r");
 				if (handler == NULL)exit(1);
 				char *data = NULL;
@@ -184,7 +253,7 @@ int main(int argc, char **argv) {
 				data = (char*)malloc(sizeof(char) * (size + 1));
 				//read it all in one operation
 				read_size = fread(data, sizeof(char), size, handler);
-				data[size] = '\n';
+				//data[size] = '\n';
 
 				if (size != read_size) {
 					//something went wrong, throw away the memory and set
@@ -193,19 +262,50 @@ int main(int argc, char **argv) {
 					data = NULL;
 				}
 				
-				sprintf(send_str, "AQT %s %s %d %s ", QID, deadline, size, data);
+				printf("TEST data from pdf: «%s»", data);
+				
+				//sprintf(send_str, "AQT %s %s %d %s ", QID, deadline, size, data);
+				
+				
+				
+				//each message ends with the character '\n'
+				//sprintf(send_str, "AQT %s %s %d %s\n", QID, deadline, size, data);
 
+							
+				
+				//FIXME
+				n = sprintf(send_str, "AQT 12345678 30NOV2015_11:55:00 %d %s\n", size, data);
+				
+				printf("TEST AQT to send: «%s»", send_str);				
+
+
+				// works... but cannot be done this way...
+				//FIXME
+				/*
 				while ((send_bytes = write(newfd, send_str, MAX_BUF)) != 0) {
 					if (send_bytes = -1)exit(1);//error
 				}
-
+				*/
+				
+				ptr=send_str;
+	    		nbytes=n; // '\0' is not transmitted
+				
+				/* write() may write a smaller number of bytes than solicited */
+	    		nleft=nbytes;
+	    		while(nleft>0) {
+	    			send_bytes=write(newfd,ptr,nleft);
+	    			if(send_bytes<=0) exit(1); //error
+	    			nleft-=send_bytes;
+	    			ptr+=send_bytes;
+	    		}
+				
 			}
 
 			/* USER-TES: RQS SID QID V1 V2 V3 V4 V5
 			TES-USER: AQS QID score */
 
 			if (strcmp(arr[0], "RQS") == 0 && strcmp(arr[1], SID) == 0 && strcmp(arr[2], QID)) {
-				int j = 0;
+				int i, j = 0;
 				while (j < 5) {
 					if (strcmp(arr[j + 3], "A") == 0 ||
 						strcmp(arr[j + 3], "B") == 0 ||
@@ -249,7 +349,7 @@ int main(int argc, char **argv) {
 				/* TES-ECP: IQR SID QID topic_name score
 			       ECP-TES: AWI QID */
 				
-				sprintf(send_str, "IQR %s %s %s %d\n\0", SID, QID, TOPIC_NAME, score);
+				sprintf(send_str, "IQR %s %s %s %d\n", SID, QID, TOPIC_NAME, score);
 
 				while ((send_bytes = sendto(fd, send_str, strlen(send_str) + 1, 0, (struct sockaddr*)&clientaddr, clientlen)) != 0) {
 					if (send_bytes = -1)exit(1);//error
