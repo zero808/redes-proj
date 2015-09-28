@@ -40,30 +40,30 @@ int comparedates(struct tm *actual, struct tm *deadline) {
 	return (0);
 }
 
-char * createQID() {
+/*char * createQID() {
 	//QID: DDMMHHMMSS ex: 2609195001 (10 numbers)
 	char * qid;
 	time_t rawtime;
 	struct tm *currenttime;
 	time(&rawtime);
 	currenttime = localtime(&rawtime);
-	char* day, mon, hour, min, sec;
+	char* day, *mon, *hour, *min, *sec;
 
 	if (currenttime->tm_mday < 10)sprintf(day, "0%d", currenttime->tm_mday);
-	if (currenttime->tm_mon + 1 < 10)sprintf(day, "0%d", currenttime->tm_mon + 1);
-	if (currenttime->tm_hour < 10)sprintf(day, "0%d", currenttime->tm_hour);
-	if (currenttime->tm_min < 10)sprintf(day, "0%d", currenttime->tm_min);
-	if (currenttime->tm_sec < 10)sprintf(day, "0%d", currenttime->tm_sec);
+	if (currenttime->tm_mon + 1 < 10)sprintf(mon, "0%d", currenttime->tm_mon + 1);
+	if (currenttime->tm_hour < 10)sprintf(hour, "0%d", currenttime->tm_hour);
+	if (currenttime->tm_min < 10)sprintf(min, "0%d", currenttime->tm_min);
+	if (currenttime->tm_sec < 10)sprintf(sec, "0%d", currenttime->tm_sec);
 
 	sprintf(day, "%d", currenttime->tm_mday);
-	sprintf(day, "%d", currenttime->tm_mon + 1);
-	sprintf(day, "%d", currenttime->tm_hour);
-	sprintf(day, "%d", currenttime->tm_min);
-	sprintf(day, "%d", currenttime->tm_sec);
+	sprintf(mon, "%d", currenttime->tm_mon + 1);
+	sprintf(hour, "%d", currenttime->tm_hour);
+	sprintf(min, "%d", currenttime->tm_min);
+	sprintf(sec, "%d", currenttime->tm_sec);
 
 	sprintf(qid, "%s%s%s%s%s", day, mon, hour, min, sec);
 	return qid;
-}
+}*/
 
 			
 char *readTCPclient(int sockfd) {
@@ -112,7 +112,7 @@ int main(int argc, char **argv) {
 	ssize_t send_bytes;
 
 	//char *SID, *QID, *deadline, *data=NULL, *filename;
-	char SID[5+1], *QID, deadline[18+1], *data=NULL, filename[12+1];
+	char SID[5+1], QID[10+1], deadline[18+1], *data=NULL, filename[12+1];
 	int size, score = 0;
 
 	time_t rawtime;
@@ -192,14 +192,14 @@ int main(int argc, char **argv) {
 			//we can use parseString() from functions.c...
 			char* arr[8];
 			char * ch;
-			ch = strtok(ptr, " ");
+			ch = strtok(strdup(ptr), " ");
 			int i = 0;
 			while (ch != NULL) {
 				arr[i] = ch;
 				i++;
 				ch = strtok(NULL, " ");
 			}
-
+			printf("arr[0]:%s\narr[1]:%d\n", arr[0], atoi(arr[1]));
 
 			/* USER-TES: RQT SID
 			TES-USER: AQT QID time size data */
@@ -215,18 +215,45 @@ int main(int argc, char **argv) {
 				printf("TEST filename to send: «%s»\n", filename);
 				
 				
-				time(&rawtime);
-				deadlinetime = localtime(&rawtime);
+			
 				
-				//createQID() is not working...
+				//createQID() working...
 				
-/*				
+	struct tm *t;
+	time(&rawtime);
+	t = localtime(&rawtime);
+	char day[2], mon[2], hour[2], min[2], sec[2];
+
+	if (t->tm_mday < 10)sprintf(day, "0%d", t->tm_mday);
+	else sprintf(day, "%d", t->tm_mday);
+	printf("%s", day);
+	if ((t->tm_mon + 1) < 10)sprintf(mon, "0%d", t->tm_mon + 1);
+	else sprintf(mon, "%d", t->tm_mon + 1);
+	printf("%s", mon);
+
+	if (t->tm_hour < 10)sprintf(hour, "0%d", t->tm_hour);
+	else sprintf(hour, "%d", t->tm_hour);
+	printf("%s", hour);
+
+	if (t->tm_min < 10)sprintf(min, "0%d", t->tm_min);
+	else sprintf(min, "%d", t->tm_min);
+	printf("%s", min);
+
+	if (t->tm_sec < 10)sprintf(sec, "0%d", t->tm_sec);
+	else sprintf(sec, "%d", t->tm_sec);
+	printf("%s", sec);
+
+
+	sprintf(QID, "%s%s%s%s%s", day, mon, hour, min, sec);
+				
+				
 				//QID: unique transaction identifier (current time)
-				strcpy(QID, createQID()); //FIXME
+				//sprintf(QID,"%s\n", ); //FIXME
 				
 				//createQID() is not working...
 				printf("TEST QID creation: QID=<%s>\n", QID);
-				
+					time(&rawtime);
+				deadlinetime = localtime(&rawtime);
 				//deadline: current time + 15min
 				deadlinetime->tm_min += 15;
 				
@@ -239,7 +266,7 @@ int main(int argc, char **argv) {
 
 				//just a test...
 				printf("TEST time to send: %s\n", deadline);
-*/
+
 				FILE *handler = fopen(filename, "r");
 				if (handler == NULL)exit(1);
 				char *data = NULL;
@@ -269,12 +296,12 @@ int main(int argc, char **argv) {
 				
 				
 				//each message ends with the character '\n'
-				//sprintf(send_str, "AQT %s %s %d %s\n", QID, deadline, size, data);
+				n=sprintf(send_str, "AQT %s %s %d %s", QID, deadline, size, data);
 
 							
 				
 				//FIXME
-				n = sprintf(send_str, "AQT 12345678 30NOV2015_11:55:00 %d %s\n", size, data);
+				//n = sprintf(send_str, "AQT 12345678 30NOV2015_11:55:00 %d %s\n", size, data);
 				
 				printf("TEST AQT to send: «%s»", send_str);				
 
