@@ -10,7 +10,7 @@
 #include <time.h>
 #include <sys/stat.h>
 
-#define PORT 59000
+#define PORT 59005
 #define MAX_BUF 128
 #define NUM_OF_FILES 2
 #define NUM_OF_QUESTIONS 5
@@ -226,25 +226,21 @@ int main(int argc, char **argv) {
 
 	if (t->tm_mday < 10)sprintf(day, "0%d", t->tm_mday);
 	else sprintf(day, "%d", t->tm_mday);
-	printf("%s", day);
+	
 	if ((t->tm_mon + 1) < 10)sprintf(mon, "0%d", t->tm_mon + 1);
 	else sprintf(mon, "%d", t->tm_mon + 1);
-	printf("%s", mon);
 
 	if (t->tm_hour < 10)sprintf(hour, "0%d", t->tm_hour);
 	else sprintf(hour, "%d", t->tm_hour);
-	printf("%s", hour);
-
+	
 	if (t->tm_min < 10)sprintf(min, "0%d", t->tm_min);
 	else sprintf(min, "%d", t->tm_min);
-	printf("%s", min);
-
+	
 	if (t->tm_sec < 10)sprintf(sec, "0%d", t->tm_sec);
 	else sprintf(sec, "%d", t->tm_sec);
-	printf("%s", sec);
+	
 
-
-	sprintf(QID, "%s%s%s%s%s", day, mon, hour, min, sec);
+				sprintf(QID, "%s%s%s%s%s", day, mon, hour, min, sec);
 				
 				
 				//QID: unique transaction identifier (current time)
@@ -252,17 +248,32 @@ int main(int argc, char **argv) {
 				
 				//createQID() is not working...
 				printf("TEST QID creation: QID=<%s>\n", QID);
-					time(&rawtime);
+				
+				time(&rawtime);
 				deadlinetime = localtime(&rawtime);
 				//deadline: current time + 15min
-				deadlinetime->tm_min += 15;
+
+				if ((deadlinetime->tm_min += 15) > 59)deadlinetime->tm_min-=60+15;
+				printf("%d\n\n",deadlinetime->tm_min);
+				if (deadlinetime->tm_min < 10)sprintf(min, "0%d", deadlinetime->tm_min);
+				else sprintf(min, "%d", deadlinetime->tm_min);
 				
-				sprintf(deadline, "%d%d%d_%d:%d:%d", deadlinetime->tm_mday,
-					deadlinetime->tm_mon + 1,
+				enum months {JAN = 1, FEB, MAR, APR, MAY, JUN, JUL, AUG, SEP, OCT, NOV, DEC };
+				enum months month; 
+
+   				const char *monthName[] = { "", "JAN", "FEB", "MAR", 
+      				"APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT",
+      				"NOV", "DEC" };
+   				month = deadlinetime->tm_mon + 1;
+      				printf( "%2d%11s\n", month, monthName[ month ] );
+
+				
+				sprintf(deadline, "%s%s%d_%s:%s:%s", day,
+					monthName[month],
 					deadlinetime->tm_year + 1900,
-					deadlinetime->tm_hour,
-					deadlinetime->tm_min,
-					deadlinetime->tm_sec);
+					hour,
+					min,
+					sec);
 
 				//just a test...
 				printf("TEST time to send: %s\n", deadline);
@@ -296,7 +307,7 @@ int main(int argc, char **argv) {
 				
 				
 				//each message ends with the character '\n'
-				n=sprintf(send_str, "AQT %s %s %d %s", QID, deadline, size, data);
+				n=sprintf(send_str, "AQT %s %s %d %s\n", QID, deadline, size, data);
 
 							
 				
@@ -325,6 +336,7 @@ int main(int argc, char **argv) {
 	    			nleft-=send_bytes;
 	    			ptr+=send_bytes;
 	    		}
+			break;
 				
 			}
 
