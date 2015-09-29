@@ -1,1 +1,5 @@
-Hello!
+Considere dois computadores, A e B, interligados por uma ligação com um ritmo de transmissão de R bit/s. A distância entre A e B é de d metros e a velocidade de propagação de sinais no meio de transmissão usado é de v m/s. A envia a B um pacote de tamanho L bits. A partir do momento em que A inicia a transmissão, quanto tempo depois começa B a receber o pacote?
+A - L/R segundos depois
+B - Instantaneamente
+C - d/v segundos depois
+D - d/R segundos depois

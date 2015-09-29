@@ -182,15 +182,15 @@ int verifyAQT(char *aqt_reply, char ***argv) { //AQT QID time size data
 	int n;
 	
 	//breaks the AQT reply into tokens
-	n = parseString(aqt_reply, argv, 5+1);
-	if (n == 5) {
+	n = parseString(aqt_reply, argv, 3);
+	if (n == 3) {
 		int size;
 		size = atoi((*argv)[3]); //size of data
 	
 		if (strcmp((*argv)[0], "AQT") == 0  
 			&& (strlen((*argv)[1]) <= QID_SZ)
-			&& validTime((*argv)[2]) //validate time in format DDMMMYYYY_HH:MM:SS 
-			&& strlen((*argv)[4]) == size) //last token (data) does NOT include byte '\n'
+			&& validTime((*argv)[2])) //validate time in format DDMMMYYYY_HH:MM:SS 
+			//&& strlen((*argv)[4]) == size) //last token (data) does NOT include byte '\n'
 			;
 		else
 			return -1;

@@ -87,7 +87,8 @@ int main(int argc, char **argv) {
 	char rqt_request[8];
 	char QID[QID_SZ+1]; //unique transaction identifier string
 	char rqs_request[128];
-	
+	int size, len;
+	char data[4096];
 	
 	while(1) {
 		
@@ -242,7 +243,44 @@ int main(int argc, char **argv) {
 	    				exit(1);
 	    			}
 	    			
+					printf("«%s» «%s» «%s» «%s»\n", T[0], T[1], T[2], T[3]);
+	    			
+	    			size = atoi(T[3]);
+
+					//data = (char*) malloc((size + 1) * sizeof(char));
+	    			
+	    		    len = strlen(T[0]) + strlen(T[1]) + strlen(T[2]) + snprintf(NULL, 0, "%i", size) + 4;
+	    		    printf("%d\n", len);
+
+					//sprintf(data, "%*s", size, ptr+len);
+
+					//copies the part of ptr from position len to the terminator (inclusive) into the array data
+	    			strcpy(data, ptr+len);
+	    			printf("strlen(data)=%d\n", (int)strlen(data));
+
+
+					if(strlen(data) != size) {
+	    				printf("Invalid AQT reply from TES\n");
+	    				exit(1);
+	    			}			
+
 	    			strcpy(QID, T[1]);
+	    			
+	    			char filename[QID_SZ+1];
+	    			n = sprintf(filename, "%s.pdf", QID);
+	    			
+	    			FILE *fd = fopen(filename, "w+");
+					if (fd == NULL) exit(1);
+
+	    			nwritten = fwrite(data, sizeof(char), size, fd);
+	    			if (nwritten != size) {
+						printf("Error in fwrite()\n");
+						exit(1);
+					}
+						
+					fclose(fd);
+	    			printf("received file %s\n", filename);
+
 
 	    			break;
 	    			
