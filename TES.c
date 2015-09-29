@@ -10,7 +10,7 @@
 #include <time.h>
 #include <sys/stat.h>
 
-#define PORT 59005
+#define PORT 59000
 #define MAX_BUF 128
 #define NUM_OF_FILES 2
 #define NUM_OF_QUESTIONS 5
@@ -111,7 +111,6 @@ int main(int argc, char **argv) {
 	ssize_t rcvd_bytes;
 	ssize_t send_bytes;
 
-	//char *SID, *QID, *deadline, *data=NULL, *filename;
 	char SID[5+1], QID[10+1], deadline[18+1], *data=NULL, filename[12+1];
 	int size, score = 0;
 
@@ -199,7 +198,6 @@ int main(int argc, char **argv) {
 				i++;
 				ch = strtok(NULL, " ");
 			}
-			printf("arr[0]:%s\narr[1]:%d\n", arr[0], atoi(arr[1]));
 
 			/* USER-TES: RQT SID
 			TES-USER: AQT QID time size data */
@@ -214,46 +212,41 @@ int main(int argc, char **argv) {
 				
 				printf("TEST filename to send: «%s»\n", filename);
 				
-				
-			
-				
+
 				//createQID() working...
 				
-	struct tm *t;
-	time(&rawtime);
-	t = localtime(&rawtime);
-	char day[2], mon[2], hour[2], min[2], sec[2];
+				struct tm *t;
+				time(&rawtime);
+				t = localtime(&rawtime);
+				char day[2], mon[2], hour[2], min[2], sec[2];
 
-	if (t->tm_mday < 10)sprintf(day, "0%d", t->tm_mday);
-	else sprintf(day, "%d", t->tm_mday);
+				if (t->tm_mday < 10)sprintf(day, "0%d", t->tm_mday);
+				else sprintf(day, "%d", t->tm_mday);
 	
-	if ((t->tm_mon + 1) < 10)sprintf(mon, "0%d", t->tm_mon + 1);
-	else sprintf(mon, "%d", t->tm_mon + 1);
+				if ((t->tm_mon + 1) < 10)sprintf(mon, "0%d", t->tm_mon + 1);
+				else sprintf(mon, "%d", t->tm_mon + 1);
 
-	if (t->tm_hour < 10)sprintf(hour, "0%d", t->tm_hour);
-	else sprintf(hour, "%d", t->tm_hour);
+				if (t->tm_hour < 10)sprintf(hour, "0%d", t->tm_hour);
+				else sprintf(hour, "%d", t->tm_hour);
 	
-	if (t->tm_min < 10)sprintf(min, "0%d", t->tm_min);
-	else sprintf(min, "%d", t->tm_min);
+				if (t->tm_min < 10)sprintf(min, "0%d", t->tm_min);
+				else sprintf(min, "%d", t->tm_min);
 	
-	if (t->tm_sec < 10)sprintf(sec, "0%d", t->tm_sec);
-	else sprintf(sec, "%d", t->tm_sec);
+				if (t->tm_sec < 10)sprintf(sec, "0%d", t->tm_sec);
+				else sprintf(sec, "%d", t->tm_sec);
 	
-
-				sprintf(QID, "%s%s%s%s%s", day, mon, hour, min, sec);
-				
-				
 				//QID: unique transaction identifier (current time)
-				//sprintf(QID,"%s\n", ); //FIXME
-				
-				//createQID() is not working...
-				printf("TEST QID creation: QID=<%s>\n", QID);
+				sprintf(QID, "%s%s%s%s%s", day, mon, hour, min, sec);
+			
 				
 				time(&rawtime);
 				deadlinetime = localtime(&rawtime);
 				//deadline: current time + 15min
 
-				if ((deadlinetime->tm_min += 15) > 59)deadlinetime->tm_min-=60+15;
+				if ((deadlinetime->tm_min += 15) > 59){
+					deadlinetime->tm_min-=60;
+					deadlinetime->tm_hour++;
+				}
 				printf("%d\n\n",deadlinetime->tm_min);
 				if (deadlinetime->tm_min < 10)sprintf(min, "0%d", deadlinetime->tm_min);
 				else sprintf(min, "%d", deadlinetime->tm_min);
@@ -300,21 +293,12 @@ int main(int argc, char **argv) {
 					data = NULL;
 				}
 				
-				printf("TEST data from pdf: «%s»", data);
-				
-				//sprintf(send_str, "AQT %s %s %d %s ", QID, deadline, size, data);
-				
+				printf("TEST data from pdf: «%s»", data);				
 				
 				
 				//each message ends with the character '\n'
 				n=sprintf(send_str, "AQT %s %s %d %s\n", QID, deadline, size, data);
-
-							
-				
-				//FIXME
-				//n = sprintf(send_str, "AQT 12345678 30NOV2015_11:55:00 %d %s\n", size, data);
-				
-				printf("TEST AQT to send: «%s»", send_str);				
+								
 
 
 				// works... but cannot be done this way...
@@ -336,22 +320,38 @@ int main(int argc, char **argv) {
 	    			nleft-=send_bytes;
 	    			ptr+=send_bytes;
 	    		}
-			break;
-				
-			}
-
+			printf("TEST AQT sent : «%s»", send_str);
+			
 			/* USER-TES: RQS SID QID V1 V2 V3 V4 V5
 			TES-USER: AQS QID score */
 
-			if (strcmp(arr[0], "RQS") == 0 && strcmp(arr[1], SID) == 0 && strcmp(arr[2], QID)) {
-				int i, j = 0;
-				while (j < 5) {
-					if (strcmp(arr[j + 3], "A") == 0 ||
-						strcmp(arr[j + 3], "B") == 0 ||
-						strcmp(arr[j + 3], "C") == 0 ||
-						strcmp(arr[j + 3], "D") == 0 ||
-						strcmp(arr[j + 3], "N") == 0)j++;
+			ptr = readTCPclient(newfd);
+			printf("TEST: received from user: «%s»\n", ptr);
+			ptr[strlen(ptr)-1] = '\0'; //replace '\n' with '\0'
+			printf("TEST: after replacing newline with NULL char: «%s»\n", ptr);
+
+			char* arr[8];
+			char * c;
+			c = strtok(strdup(ptr), " ");
+			int i = 0;
+			while (c != NULL) {
+				arr[i] = c;
+				i++;
+				c = strtok(NULL, " ");
+			}
+
+			if (strcmp(arr[0], "RQS") == 0 && atoi(arr[1])==atoi(SID)  && atoi(arr[2])==atoi(QID)) {
+				int i, j;
+				for (j=0;j<5;j++) {
+					if (strcmp(arr[j+3], "A") == 0 ||
+						strcmp(arr[j+3], "B") == 0 ||
+						strcmp(arr[j+3], "C") == 0 ||
+						strcmp(arr[j+3], "D") == 0 ||
+						strcmp(arr[j+3], "N") == 0)continue;
+
 					else {
+						
+						printf("\n----->invalid answers\n");
 						if (send_bytes = write(newfd, "ERR\n", MAX_BUF) <= 0)exit(1);
 					}
 				}
@@ -364,17 +364,32 @@ int main(int argc, char **argv) {
 						if (strcmp(CORRECT_ANSWERS[num][i], arr[i + 3]) == 0)score += 20;
 					}
 				}
-				sprintf(send_str, "AQS %s %d\n", QID, score);
-				//printf("%s Score: %d%\n", SID, score);
+				n=sprintf(send_str, "AQS %s %d\n", QID, score);
+				printf("%s Score: %d%\n", SID, score);
 
-				while ((send_bytes = write(newfd, send_str, MAX_BUF)) != 0) {
-					if (send_bytes = -1)exit(1);//error
-				}
-				close(newfd);
+				ptr=send_str;
+	    			nbytes=n; // '\0' is not transmitted
 				
+				/* write() may write a smaller number of bytes than solicited */
+	    			nleft=nbytes;
+	    			while(nleft>0) {
+	    				send_bytes=write(newfd,ptr,nleft);
+	    				if(send_bytes<=0) exit(1); //error
+	    					nleft-=send_bytes;
+	    				ptr+=send_bytes;
+	    			}
+				printf("TEST AQT sent : «%s»", send_str);
+			
+
+
+				/*while ((send_bytes = write(newfd, send_str, MAX_BUF)) != 0) {
+					if (send_bytes = -1)exit(1);//error
+				}*/
+				close(newfd);
+
 				/* TES-ECP Protocol (in UDP) */
 
-				if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)exit(1);//error
+				/*if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)exit(1);//error
 
 				memset((void*)&serveraddr, (int)'\0', sizeof(serveraddr));
 				serveraddr.sin_family = AF_INET;
@@ -383,19 +398,20 @@ int main(int argc, char **argv) {
 
 				if (bind(fd, (struct sockaddr*)&serveraddr, sizeof(serveraddr)) == -1)exit(1);//error
 
-				clientlen = sizeof(clientaddr);
+				clientlen = sizeof(clientaddr);*/
 
 				/* TES-ECP: IQR SID QID topic_name score
-			       ECP-TES: AWI QID */
-				
-				sprintf(send_str, "IQR %s %s %s %d\n", SID, QID, TOPIC_NAME, score);
+				ECP-TES: AWI QID */
+
+				/*sprintf(send_str, "IQR %s %s %s %d\n", SID, QID, TOPIC_NAME, score);
+
 
 				while ((send_bytes = sendto(fd, send_str, strlen(send_str) + 1, 0, (struct sockaddr*)&clientaddr, clientlen)) != 0) {
-					if (send_bytes = -1)exit(1);//error
+				if (send_bytes = -1)exit(1);//error
 				}
-				
+
 				while ((rcvd_bytes = recvfrom(fd, recv_str, strlen(recv_str), 0, (struct sockaddr*)&clientaddr, &clientlen)) != 0) {
-					if (rcvd_bytes = -1)exit(1);//error
+				if (rcvd_bytes = -1)exit(1);//error
 				}
 
 				char* array[8];
@@ -408,15 +424,21 @@ int main(int argc, char **argv) {
 					chh = strtok(NULL, " ");
 				}
 				if (strcmp(array[0], "AWI") == 0 && strcmp(array[1], QID) == 0) {
-					close(fd); 
+				close(fd);
 				}
 				else {
-					while ((send_bytes = sendto(fd,"ERR\n", 4, 0, (struct sockaddr*)&clientaddr, clientlen)) != 0) {
-						if (send_bytes = -1)exit(1);//error
-					}
+				while ((send_bytes = sendto(fd,"ERR\n", 4, 0, (struct sockaddr*)&clientaddr, clientlen)) != 0) {
+				if (send_bytes = -1)exit(1);//error
 				}
+				}*/
 			}
+
+				
+			}
+
+			
 			else {
+				printf("\n----->erro2\n");
 				if (send_bytes = write(newfd, "ERR\n", MAX_BUF) <= 0)exit(1);
 			}
 		}
