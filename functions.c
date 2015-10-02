@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <netinet/in.h> /* for INET_ADDRSTRLEN */
+#include <unistd.h>
 #include <errno.h>
 
 #include "functions.h"
@@ -9,6 +10,7 @@
 extern int errno;
 extern char ECPname[];
 extern unsigned short int ECPport;
+extern char filename[];
 
 int cmd_manager(int index, char **argv) {
 
@@ -142,64 +144,6 @@ int verifyTnn(char *p) {
 	return tnn;
 }
 
-char* getTCPServerReply(int sockfd) {
-	char buffer[BUFFER_SIZE];
-	int nread = 0, message_size = 0;
-	int i, message_capacity = BUFFER_SIZE;
-	
-	//allocates memory for an array of BUFFER_SIZE bytes, and set to zero the allocated memory 
-	char *message = calloc(1, sizeof(char) * BUFFER_SIZE); 
-	if (message == NULL) exit(1);
-	
-	do {
-		
-		if((nread = read(sockfd, buffer, BUFFER_SIZE)) == -1) {	
-			free(message);
-			exit(1);//error
-		}
-		
-		if (nread > 0) {
-			for (i = 0; i < nread; i++) {
-				message[message_size + i] = buffer[i];
-			}
-			memset(buffer, 0, BUFFER_SIZE); //clear the buffer
-
-			message_size += nread;
-			if (message_size >= message_capacity) {
-				message_capacity += BUFFER_SIZE;
-				message = realloc(message, message_capacity);
-				if (message == NULL) exit(1);
-			}
-		}
-
-	//message ends with the character '\n', or when nread = 0 (closed by peer)
-	} while ((message[strlen(message)-1] != '\n') && nread > 0);
-
-	return message;
-}
-
-int verifyAQT(char *aqt_reply, char ***argv) { //AQT QID time size data
-	int n;
-	
-	//breaks the AQT reply into tokens
-	n = parseString(aqt_reply, argv, 3);
-	if (n == 3) {
-		int size;
-		size = atoi((*argv)[3]); //size of data
-	
-		if (strcmp((*argv)[0], "AQT") == 0  
-			&& (strlen((*argv)[1]) <= QID_SZ)
-			&& validTime((*argv)[2])) //validate time in format DDMMMYYYY_HH:MM:SS 
-			//&& strlen((*argv)[4]) == size) //last token (data) does NOT include byte '\n'
-			;
-		else
-			return -1;
-	}
-	else 
-		return -1;
-	
-	return 0;
-}
 
 //validate time in format DDMMMYYYY_HH:MM:SS
 int validTime(char *time) {
@@ -249,7 +193,8 @@ int validMonth(char* m) {
 	enum months { JAN = 1, FEB, MAR, APR, MAY, JUN, JUL, AUG, SEP, OCT, NOV, DEC };
 	enum months month;
 		
-	const char *monthName[] = { "", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC" };
+	//const char *monthName[] = { "", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC" };
+	const char *monthName[] = { "", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 	
 	for (month = JAN; month <= DEC; month++) {
 		if (strcmp(m, monthName[month]) == 0)
@@ -352,3 +297,247 @@ int checkErrorMessages(char* reply, char* request) {
 	
 	return 0;
 }
+
+
+int verifyAQT(char *tok, int ntok, char* qid, char* time, size_t *size) {
+	int len;
+	
+	if (ntok == 0) { //AQT
+	
+		if (strncmp(tok, "ERR", 3) == 0) {
+			printf("The RQT request is not correctly formulated\n");
+			return -1;
+		}
+	
+		if (strncmp(tok, "AQT", 3) != 0)
+			return -1;
+	}
+	
+	if (ntok == 1) { //QID
+		len = strlen(tok);	
+		if (len < 1 || len > QID_SZ)
+			return -1;
+		else
+			strcpy(qid, tok);
+	}
+
+	if (ntok == 2) { //time
+		if (!validTime(tok))
+			return -1;
+		else
+			strcpy(time, tok);
+	}
+
+	if (ntok == 3) { //size
+		*size = (size_t)atoi(tok); 
+		if (size == 0)
+			return -1;
+	}
+
+	return 0;
+}
+
+
+int getAQTReply(int sockfd, char* qid, char* time, size_t* size) {
+	char buffer[BUFFER_SIZE];
+	int nread = 0, message_size = 0, message_capacity = BUFFER_SIZE;
+	int i, k = 0, n, ndelim = 0, nleft, nbytes, nwritten, nlastread;
+	const char delim = ' ';
+	char* token;
+	char* ptr;
+	size_t sz;
+	
+	FILE* fd;
+	
+	//set to zero the allocated memory 
+	char* message = (char*) calloc(BUFFER_SIZE, sizeof(char)); 
+	if (message == NULL) { 
+		printf("Error allocating memory\n");
+		exit(1);
+	} 
+	
+	// get AQT, QID, time and size from AQT reply
+	
+	do {
+	
+		if((nread = read(sockfd, buffer, BUFFER_SIZE)) == -1) {	
+			free(message);
+			exit(1);//error
+		}
+		
+		//printf("nread from read()=<%d>\n", nread);
+		
+		if (nread > 0) {
+		
+			for (i = 0; i < nread; ++i) {
+				message[message_size + i] = buffer[i];
+				if (buffer[i] == delim) {
+					sz = (message_size + i) - k;
+					printf("sz=%zd i=%d\n", sz, i);
+					token = (char*) calloc((sz + 1), sizeof(char));
+					memcpy(token, message + k, sz);
+					printf("token<%d>: %s\n", ndelim, token);
+					
+					//validate token
+					n = verifyAQT(token, ndelim, qid, time, size);
+					if (n == -1)
+	    				return -1;
+					
+					++ndelim;
+					k = (message_size + i) + 1; printf("k=%d\n", k);
+				}
+				
+				if (ndelim == 4) break; //all tokens processed
+			}
+				
+			if (ndelim < 4) {
+				memset(buffer, 0, BUFFER_SIZE); //clear the buffer
+				message_size += nread;
+			
+				if (message_size >= message_capacity) {
+					message_capacity += BUFFER_SIZE;
+					message = realloc(message, message_capacity);
+					if (message == NULL) { 
+						printf("Error allocating memory\n");
+						exit(1);
+					}
+				}		
+			}
+			else {
+				nlastread = i + 1; //number of bytes read and processed from last call to read()
+				message_size += nlastread; //index of first data byte
+			}
+				
+		}
+		
+	//message ends when the 4th delim is reached, or when nread = 0 (closed by peer)
+	} while (ndelim < 4 && nread > 0);
+
+	//data bytes from last read()
+	int data_read = nread - nlastread;
+	
+	printf("data_read=<%d> nread=<%d> nlastread=<%d>\n", data_read, nread, nlastread);
+	
+	n = sprintf(filename, "%s.pdf", qid);
+	if (n < 0) { printf("Error in sprintf"); exit(1); }
+	fd = fopen(filename, "wb");
+	if (fd == NULL) exit(1);
+	
+	size_t data_size = *size; //file size (in Bytes)
+	
+	if (data_read > data_size) { //end message character '\n' is included
+	
+		//process data_size (i.e., all) data bytes
+		ptr = &buffer[nlastread]; //ptr points to first unprocessed byte
+		nwritten = fwrite(ptr, sizeof(char), data_size, fd);
+		if (nwritten != data_size) { printf("Error in fwrite");	exit(1); }
+		
+		if (buffer[nlastread + data_size] == '\n') {
+			fclose(fd);
+			return 0;
+		}
+		else { //AQT reply is not valid
+			fclose(fd);
+			n = remove(filename); //delete file
+			if (n == 0)
+				printf("%s file deleted\n", filename);
+   			else 
+   				perror("Error in remove");
+   		
+			return -1;	
+		}
+	}
+	
+	if (data_read > 0 && data_read <= data_size) {
+		//process first (or all) data bytes from last read()
+		ptr = &buffer[nlastread]; //ptr points to first unprocessed byte
+		nwritten = fwrite(ptr, sizeof(char), data_read, fd);
+		if (nwritten != data_read) {
+			printf("Error in fwrite()\n");
+			exit(1);
+		}
+	}
+	
+	//read and process all the data bytes if data_read == 0
+	nbytes = data_size - data_read;
+	nleft = nbytes; //bytes left to read
+	printf("nleft=%d\n", nleft);
+	
+	char data[data_size];
+	memset(data, 0, data_size);
+	ptr=&data[0];
+	
+	while(nleft > 0) {
+		nread = read(sockfd, ptr, nleft);
+		if (nread == -1) { perror("Error in read"); exit(1);} //error
+		else if(nread == 0) break; //closed by peer
+
+		nwritten = fwrite(ptr, sizeof(char), nread, fd);
+		if (nwritten != nread) {
+			printf("Error in fwrite\n");
+			exit(1);
+		}
+	
+		nleft-=nread;
+		ptr+=nread;
+	}
+
+	nread = nbytes - nleft;
+	if (nread != nbytes)
+		printf("Closed by peer\n");
+	
+	fclose(fd);
+	
+	// read last byte (AQT reply ends with the character '\n')
+	memset(buffer, 0, BUFFER_SIZE); //clear the buffer
+	
+	nread = read(sockfd, buffer, BUFFER_SIZE);
+	if (nread == -1) exit(1); //error
+	else if (nread == 0) exit(1); //closed by peer
+	
+	if (nread == 1 && buffer[0] == '\n') {
+		return 0;
+	}
+	
+	return -1;	
+}
+
+
+char* getAQSReply(int sockfd) {
+	char buffer[BUFFER_SIZE];
+	int nread = 0, message_size = 0;
+	int i, message_capacity = BUFFER_SIZE;
+	
+	//allocates memory for an array of BUFFER_SIZE bytes, and set to zero the allocated memory 
+	char *message = calloc(1, sizeof(char) * BUFFER_SIZE); 
+	if (message == NULL) exit(1);
+	
+	do {
+		
+		if((nread = read(sockfd, buffer, BUFFER_SIZE)) == -1) {	
+			free(message);
+			exit(1);//error
+		}
+		
+		printf("nread from aqs=<%d>\n", nread);
+		
+		if (nread > 0) {
+			for (i = 0; i < nread; i++) {
+				message[message_size + i] = buffer[i];
+			}
+			memset(buffer, 0, BUFFER_SIZE); //clear the buffer
+
+			message_size += nread;
+			if (message_size >= message_capacity) {
+				message_capacity += BUFFER_SIZE;
+				message = realloc(message, message_capacity);
+				if (message == NULL) exit(1);
+			}
+		}
+
+	//message ends with the character '\n', or when nread = 0 (closed by peer)
+	} while ((message[strlen(message)-1] != '\n') && nread > 0);
+
+	return message;
+}
+

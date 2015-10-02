@@ -10,8 +10,8 @@ void displayTopics(char ***argv);
 int verifyAWT(int toks, char ***argv);
 int verifyTnn(char *p);
 int verifyAWTES(int toks, char ***argv);
-char* getTCPServerReply(int sockfd);
-int verifyAQT(char *aqt_reply, char ***argv);
+//int verifyAQT(char *aqt_reply, char ***argv);
+int verifyAQT(char *tok, int ntok, char* qid, char* time, size_t *size);
 int validTime(char *time);
 int validTimeDate(int day, char* month, int year);
 int validMonth(char* month);
@@ -20,6 +20,8 @@ int validTimeHour(int hour, int min, int sec);
 int verifyQuestAnswers(char *answers, char ***argv);
 int verifyAQS(char *aqs_reply, char ***argv, char *qid);
 int checkErrorMessages(char* reply, char* request);
+int getAQTReply(int sockfd, char *qid, char* time, size_t *size);
+char* getAQSReply(int sockfd);
 
 #endif
 

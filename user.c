@@ -19,7 +19,7 @@ extern int errno;
 int SID;
 char ECPname[STRING_SZ];
 unsigned short int ECPport = PORT + GN; /* default port number */
-
+char filename[QID_SZ+6]; //+6 for file extension and '\0'
 
 /*-------------------------------------------------------------------------------------
 | main
@@ -86,9 +86,14 @@ int main(int argc, char **argv) {
 	unsigned short int portTES;
 	char rqt_request[8];
 	char QID[QID_SZ+1]; //unique transaction identifier string
+	char time[18+1];
+	size_t size;
+	
 	char rqs_request[128];
-	int size, len;
-	char data[4096];
+	int len;
+	
+	//char data[4096];
+	
 	
 	while(1) {
 		
@@ -169,7 +174,7 @@ int main(int argc, char **argv) {
 						exit(1);
 	    			
 					n = checkErrorMessages(buffer, "TER");
-					if(n==-1) exit(1);
+					if (n == -1) exit(1);
 	    			
 	    			//buffer[n] = '\0';
 	    			
@@ -177,13 +182,13 @@ int main(int argc, char **argv) {
   					n = parseString(buffer, &T, 4);
   					
   					/* verify received protocol message */
-  					n=verifyAWTES(n, &T);
-  					if(n==-1)exit(1);
+  					n = verifyAWTES(n, &T);
+  					if(n == -1) exit(1);
   					
   					iptes_addr = T[1];
   					portTES = atoi(T[2]);
 	    			
-	    			//printf("%s %hu\n", iptes_addr, portTES);
+	    			printf("%s %hu\n", iptes_addr, portTES);
 	    			
 	    			/* converts IPv4 network address in dotted-decimal format into a struct in_addr */
 	    			n = inet_pton(AF_INET, iptes_addr, &IPTES);
@@ -200,87 +205,44 @@ int main(int argc, char **argv) {
 	    				exit(1);
 	    			}
 	    			
-					hostptr=gethostbyaddr(&IPTES,sizeof(IPTES),AF_INET);
-					if(hostptr==NULL)exit(1);
+					hostptr = gethostbyaddr(&IPTES, sizeof(IPTES), AF_INET);
+					if(hostptr == NULL) exit(1);
 	    			else printf("%s %hu\n", hostptr->h_name, portTES); //expected output from ECP's AWTES reply
 	    			
 	    			/* RQT SID - User–TES Protocol (in TCP) */
-	    			serveraddr.sin_addr.s_addr=IPTES.s_addr; //TES server IP address
-	    			serveraddr.sin_port=htons((u_short) portTES);
+	    			serveraddr.sin_addr.s_addr = IPTES.s_addr; //TES server IP address
+	    			serveraddr.sin_port = htons((u_short) portTES);
 	    			
-	    			n=connect(fd_tcp,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
-					if(n==-1)exit(1); //error
+	    			n = connect(fd_tcp, (struct sockaddr*)&serveraddr, sizeof(serveraddr));
+					if(n == -1) exit(1); //error
 	    			
-	    			// 'n' does not include the terminating null byte ('\0') automatically appended at the end of the string 
-	    			n=sprintf(rqt_request, "RQT %d\n", SID);
-	    			
-	    			ptr=rqt_request;
-	    			nbytes=n;//10 ('\0' is not transmitted)
+	    			// n does not include the byte '\0' automatically appended at the end of the string 
+	    			n = sprintf(rqt_request, "RQT %d\n", SID);
+	    			if (n < 0) { printf("Error in sprintf"); exit(1); }
+	    			ptr = rqt_request;
+	    			nbytes = n; //10 ('\0' is not transmitted)
 	    			
 	    			//printf("%s", ptr);
 	    			
 	    			/* write() may write a smaller number of bytes than solicited */
-	    			nleft=nbytes;
-	    			while(nleft>0) {
-	    				nwritten=write(fd_tcp,ptr,nleft);
-	    				if(nwritten<=0) exit(1); //error
-	    				nleft-=nwritten;
-	    				ptr+=nwritten;
+	    			nleft = nbytes;
+	    			while (nleft > 0) {
+	    				nwritten = write(fd_tcp, ptr, nleft);
+	    				if (nwritten <= 0) exit(1); //error
+	    				nleft -= nwritten;
+	    				ptr += nwritten;
 	    			}
 	    			
 	    			/* AQT QID time size data - User–TES Protocol (in TCP) */
-	    			ptr = getTCPServerReply(fd_tcp);
-	    			
-	    			ptr[strlen(ptr)-1] = '\0'; //replace '\n' with '\0'
-	    			
-	    			n = checkErrorMessages(ptr, "RQT");
-					if(n==-1) exit(1);
-	    			
-	    			//verify received protocol message
-	    			n = verifyAQT(ptr, &T);
-	    			if(n == -1) {
-	    				printf("Invalid AQT reply from TES\n");
+	    			n = getAQTReply(fd_tcp, QID, time, &size);
+	    			if (n == -1) {
+	    				printf("Invalid AQT reply\n");
 	    				exit(1);
 	    			}
 	    			
-					printf("«%s» «%s» «%s» «%s»\n", T[0], T[1], T[2], T[3]);
-	    			
-	    			size = atoi(T[3]);
-
-					//data = (char*) malloc((size + 1) * sizeof(char));
-	    			
-	    		    len = strlen(T[0]) + strlen(T[1]) + strlen(T[2]) + snprintf(NULL, 0, "%i", size) + 4;
-	    		    printf("%d\n", len);
-
-					//sprintf(data, "%*s", size, ptr+len);
-
-					//copies the part of ptr from position len to the terminator (inclusive) into the array data
-	    			strcpy(data, ptr+len);
-	    			printf("strlen(data)=%d\n", (int)strlen(data));
-
-
-					if(strlen(data) != size) {
-	    				printf("Invalid AQT reply from TES\n");
-	    				exit(1);
-	    			}			
-
-	    			strcpy(QID, T[1]);
-	    			
-	    			char filename[QID_SZ+1];
-	    			n = sprintf(filename, "%s.pdf", QID);
-	    			
-	    			FILE *fd = fopen(filename, "w+");
-					if (fd == NULL) exit(1);
-
-	    			nwritten = fwrite(data, sizeof(char), size, fd);
-	    			if (nwritten != size) {
-						printf("Error in fwrite()\n");
-						exit(1);
-					}
-						
-					fclose(fd);
+	    			printf("QID=<%s> time=<%s> size=<%zu>\n", QID, time, size);
+	    		
 	    			printf("received file %s\n", filename);
-
 
 	    			break;
 	    			
@@ -290,7 +252,12 @@ int main(int argc, char **argv) {
 	    			getchar();
 	    			ptr = fgets(answers, sizeof(answers), stdin); //answer values (V1 to V5) in the format "V1 V2 V3 V4 V5"
 	    			if (ptr == NULL) exit(1);
-	    			//printf("ptr:%s", ptr);
+	    			
+	    			len = strlen(ptr)-1;
+	    			if(ptr[len] = '\n') ptr[len]='\0';
+            		else ptr[len+1]='\0';
+
+	    			printf("answers:%s\n", ptr);
   					
   					n = verifyQuestAnswers(ptr, &T);
   					if(n == -1) {
@@ -301,23 +268,32 @@ int main(int argc, char **argv) {
 	    			/* RQS SID QID V1 V2 V3 V4 V5 - User–TES Protocol (in TCP) */
   					
   					n=sprintf(rqs_request, "RQS %d %s %s\n", SID, QID, answers);
-  					//printf("%s", rqs_request);
+  					if (n < 0) { printf("Error in sprintf"); exit(1); }
   					
 	    			ptr=rqs_request;
-	    			nbytes=n; //20+strlen(QID) ('\0' is not transmitted)
 	    			
+	    			printf("rqs_request=<%s>", ptr);
+	    			
+	    			nbytes=n; //20+strlen(QID) ('\0' is not transmitted)
 	    			nleft=nbytes;
-	    			while(nleft>0) {
-	    				nwritten=write(fd_tcp,ptr,nleft);
-	    				if(nwritten<=0) exit(1); //error
-	    				nleft-=nwritten;
-	    				ptr+=nwritten;
+	    			
+	    			printf("nleft before write=<%d>\n", nleft);
+	    			
+	    			while(nleft > 0) {
+	    				nwritten = write(fd_tcp, ptr, nleft);
+	    				if (nwritten <= 0) exit(1); //error
+	    				nleft -= nwritten;
+	    				ptr += nwritten;
 	    			}
   					
+  					printf("nleft after write=<%d>\n", nleft);
+  					
   					/* AQS QID score - User–TES Protocol (in TCP) */
-  					ptr = getTCPServerReply(fd_tcp);
+  					ptr = getAQSReply(fd_tcp);
   					
   					ptr[strlen(ptr)-1] = '\0'; //replace '\n' with '\0'
+  					
+  					printf("AQS reply =<%s>\n", ptr);
   					
   					n = checkErrorMessages(ptr, "RQS");
 					if(n==-1) exit(1);
