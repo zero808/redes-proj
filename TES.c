@@ -20,7 +20,7 @@
 #define ERR_SIZE 4
 
 extern int errno;
-const char * CORRECT_ANSWERS[NUM_OF_FILES][NUM_OF_QUESTIONS] = { {"A","A","A","A","A"},{ "A","B","C","D","N"} };
+const char * CORRECT_ANSWERS[NUM_OF_FILES][NUM_OF_QUESTIONS] = { {"A","A","A","A","A"},{ "A","B","C","D","A"} };
 const char * TOPIC_NAME = "Network Programming";
 
 int comparedates(struct tm *actual, struct tm *deadline) {
@@ -74,7 +74,7 @@ char* setdeadline() {
 	char day[2], mon[2], hour[2], min[2], sec[2];
 	enum months { JAN = 1, FEB, MAR, APR, MAY, JUN, JUL, AUG, SEP, OCT, NOV, DEC };
 	enum months month;
-	const char *monthName[] = { "", "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC" };
+	const char *monthName[] = { "", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 	char *deadline = malloc(sizeof(char)* (16 + 1));
 
 	//deadline: current time + 15min
@@ -304,7 +304,6 @@ int main(int argc, char **argv) {
 					perror("Error: fread().\n");
 					exit(1);
 				}
-				printf("\nData to be sent: «%s»\n", data);
 
 				//each message ends with the character '\n'
 				AQT_bytes = sprintf(send_str, "AQT %s %s %d ", QID, deadline, size);
@@ -327,7 +326,7 @@ int main(int argc, char **argv) {
 						ptr2 += send_bytes;
 					}
 					else {
-						send_bytes_data = write(newfd, data, MAX_BUF);
+						send_bytes_data = write(newfd, data, nleft);
 						if (send_bytes_data <= 0) {
 							perror("Error: data write().\n");
 							exit(1);
@@ -335,7 +334,13 @@ int main(int argc, char **argv) {
 						nleft -= send_bytes_data;
 						data += send_bytes_data;
 					}
+					
 					printf("\nnleft data bytes=%d\n", nleft);
+				}
+				send_bytes_data = write(newfd, "\n", 1);
+				if (send_bytes_data <= 0) {
+					perror("Error: data write().\n");
+					exit(1);
 				}
 
 
@@ -343,7 +348,6 @@ int main(int argc, char **argv) {
 				TES-USER: AQS QID score */
 
 				ptr3 = readTCPclient(newfd);
-				ptr3[strlen(ptr3) - 1] = '\0'; //replace '\n' with '\0'
 				printf("\nReceived message:«%s»\n", ptr3);
 
 				char* arr[8];
