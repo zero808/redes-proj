@@ -107,6 +107,7 @@ int verifyAWT(int toks, char ***argv) {
 int verifyAWTES(int toks, char ***argv) {
 	int port;
 	
+	//INET_ADDRSTRLEN = 16 bytes (15 characters for IPv4 (xxx.xxx.xxx.xxx format, 12+3 separators) + '\0')
 	if (toks == 3 && strcmp((*argv)[0], "AWTES") == 0 && (strlen((*argv)[1]) <= INET_ADDRSTRLEN-1))
 		;
 	else
@@ -232,10 +233,10 @@ int verifyQuestAnswers(char *answers, char ***argv) {
 	
 	int n;
 	
-	//check only format (answers values will be checked by TES)
+	//check only format, not values
   	n = parseString(answers, argv, 5+1);
   	if (n == 5) {
-  		char str[128];
+  		char str[STRING_SZ];
   		sprintf(str, "%s %s %s %s %s", (*argv)[0], (*argv)[1], (*argv)[2], (*argv)[3], (*argv)[4]);
   		//printf("str:%s", str);
   		if (strcmp(answers, str) != 0) {
@@ -255,7 +256,7 @@ int verifyAQS(char *aqs_reply, char ***argv, char *qid) { //AQS QID score
 	//breaks the AQS reply into tokens
   	n = parseString(aqs_reply, argv, 3+1);
 	if (n == 3) {
-		char str[128];
+		char str[STRING_SZ];
 		sprintf(str, "%s %s %s", (*argv)[0], (*argv)[1], (*argv)[2]);
 		
 		if (strcmp(aqs_reply, str) != 0)
@@ -290,8 +291,12 @@ int checkErrorMessages(char* reply, char* request) {
 		}
 	}
 
-	if (strcmp(request, "RQS") == 0 && strcmp(reply, "-1") == 0) {
-		printf("Questionnaire submitted after the deadline\n");
+	if (strcmp(request, "RQS") == 0) {
+		if (strcmp(reply, "-1") == 0)
+			printf("Questionnaire submitted after the deadline\n");
+		else if (strcmp(reply, "-2") == 0)
+			printf("SID-QID pair does not match\n");
+			
 		return -1;
 	}
 	
@@ -339,8 +344,8 @@ int verifyAQT(char *tok, int ntok, char* qid, char* time, size_t *size) {
 
 
 int getAQTReply(int sockfd, char* qid, char* time, size_t* size) {
-	char buffer[BUFFER_SIZE];
-	int nread = 0, message_size = 0, message_capacity = BUFFER_SIZE;
+	char buffer[BUFFER_SZ];
+	int nread = 0, message_size = 0, message_capacity = BUFFER_SZ;
 	int i, k = 0, n, ndelim = 0, nleft, nbytes, nwritten, nlastread;
 	const char delim = ' ';
 	char* token;
@@ -349,18 +354,18 @@ int getAQTReply(int sockfd, char* qid, char* time, size_t* size) {
 	
 	FILE* fd;
 	
-	//set to zero the allocated memory 
-	char* message = (char*) calloc(BUFFER_SIZE, sizeof(char)); 
+	/* set to zero the allocated memory */ 
+	char* message = (char*) calloc(BUFFER_SZ, sizeof(char)); 
 	if (message == NULL) { 
 		printf("Error allocating memory\n");
 		exit(1);
 	} 
 	
-	// get AQT, QID, time and size from AQT reply
+	/* get AQT, QID, time and size from AQT reply */
 	
 	do {
 	
-		if((nread = read(sockfd, buffer, BUFFER_SIZE)) == -1) {	
+		if((nread = read(sockfd, buffer, BUFFER_SZ)) == -1) {	
 			free(message);
 			exit(1);//error
 		}
@@ -372,30 +377,30 @@ int getAQTReply(int sockfd, char* qid, char* time, size_t* size) {
 			for (i = 0; i < nread; ++i) {
 				message[message_size + i] = buffer[i];
 				if (buffer[i] == delim) {
-					sz = (message_size + i) - k;
+					sz = (message_size + i) - k; //length of the token
 					printf("sz=%zd i=%d\n", sz, i);
 					token = (char*) calloc((sz + 1), sizeof(char));
-					memcpy(token, message + k, sz);
+					memcpy(token, message + k, sz); //message + k points to the token's first char
 					printf("token<%d>: %s\n", ndelim, token);
 					
-					//validate token
-					n = verifyAQT(token, ndelim, qid, time, size);
+					n = verifyAQT(token, ndelim, qid, time, size); //validate token
 					if (n == -1)
 	    				return -1;
 					
 					++ndelim;
-					k = (message_size + i) + 1; printf("k=%d\n", k);
+					k = (message_size + i) + 1; //index of next token's first char 
+					printf("k=%d\n", k);
 				}
 				
 				if (ndelim == 4) break; //all tokens processed
 			}
 				
 			if (ndelim < 4) {
-				memset(buffer, 0, BUFFER_SIZE); //clear the buffer
+				memset(buffer, 0, BUFFER_SZ); //clear the buffer
 				message_size += nread;
 			
 				if (message_size >= message_capacity) {
-					message_capacity += BUFFER_SIZE;
+					message_capacity += BUFFER_SZ;
 					message = realloc(message, message_capacity);
 					if (message == NULL) { 
 						printf("Error allocating memory\n");
@@ -413,8 +418,9 @@ int getAQTReply(int sockfd, char* qid, char* time, size_t* size) {
 	//message ends when the 4th delim is reached, or when nread = 0 (closed by peer)
 	} while (ndelim < 4 && nread > 0);
 
-	//data bytes from last read()
-	int data_read = nread - nlastread;
+	/* process data from AQT reply */
+
+	int data_read = nread - nlastread; //data bytes from last read()
 	
 	printf("data_read=<%d> nread=<%d> nlastread=<%d>\n", data_read, nread, nlastread);
 	
@@ -425,9 +431,9 @@ int getAQTReply(int sockfd, char* qid, char* time, size_t* size) {
 	
 	size_t data_size = *size; //file size (in Bytes)
 	
-	if (data_read > data_size) { //end message character '\n' is included
+	if (data_read > data_size) { //end message character ('\n') already read
 	
-		//process data_size (i.e., all) data bytes
+		/* process data_size (i.e., all) data bytes */
 		ptr = &buffer[nlastread]; //ptr points to first unprocessed byte
 		nwritten = fwrite(ptr, sizeof(char), data_size, fd);
 		if (nwritten != data_size) { printf("Error in fwrite");	exit(1); }
@@ -448,8 +454,7 @@ int getAQTReply(int sockfd, char* qid, char* time, size_t* size) {
 		}
 	}
 	
-	if (data_read > 0 && data_read <= data_size) {
-		//process first (or all) data bytes from last read()
+	if (data_read > 0 && data_read <= data_size) { //process first (or all) data bytes from last read()
 		ptr = &buffer[nlastread]; //ptr points to first unprocessed byte
 		nwritten = fwrite(ptr, sizeof(char), data_read, fd);
 		if (nwritten != data_read) {
@@ -458,14 +463,14 @@ int getAQTReply(int sockfd, char* qid, char* time, size_t* size) {
 		}
 	}
 	
-	//read and process all the data bytes if data_read == 0
+	/* read and process all the data bytes if data_read == 0 */
 	nbytes = data_size - data_read;
 	nleft = nbytes; //bytes left to read
 	printf("nleft=%d\n", nleft);
 	
 	char data[data_size];
 	memset(data, 0, data_size);
-	ptr=&data[0];
+	ptr = &data[0];
 	
 	while(nleft > 0) {
 		nread = read(sockfd, ptr, nleft);
@@ -478,8 +483,8 @@ int getAQTReply(int sockfd, char* qid, char* time, size_t* size) {
 			exit(1);
 		}
 	
-		nleft-=nread;
-		ptr+=nread;
+		nleft -= nread;
+		ptr += nread;
 	}
 
 	nread = nbytes - nleft;
@@ -488,10 +493,11 @@ int getAQTReply(int sockfd, char* qid, char* time, size_t* size) {
 	
 	fclose(fd);
 	
-	// read last byte (AQT reply ends with the character '\n')
-	memset(buffer, 0, BUFFER_SIZE); //clear the buffer
+	/* read last byte (AQT reply ends with the character '\n') */
 	
-	nread = read(sockfd, buffer, BUFFER_SIZE);
+	memset(buffer, 0, BUFFER_SZ); //clear the buffer
+	
+	nread = read(sockfd, buffer, BUFFER_SZ);
 	if (nread == -1) exit(1); //error
 	else if (nread == 0) exit(1); //closed by peer
 	
@@ -504,17 +510,17 @@ int getAQTReply(int sockfd, char* qid, char* time, size_t* size) {
 
 
 char* getAQSReply(int sockfd) {
-	char buffer[BUFFER_SIZE];
+	char buffer[STRING_SZ];
 	int nread = 0, message_size = 0;
-	int i, message_capacity = BUFFER_SIZE;
+	int i, message_capacity = STRING_SZ;
 	
 	//allocates memory for an array of BUFFER_SIZE bytes, and set to zero the allocated memory 
-	char *message = calloc(1, sizeof(char) * BUFFER_SIZE); 
+	char *message = calloc(1, sizeof(char) * STRING_SZ); 
 	if (message == NULL) exit(1);
 	
 	do {
 		
-		if((nread = read(sockfd, buffer, BUFFER_SIZE)) == -1) {	
+		if((nread = read(sockfd, buffer, STRING_SZ)) == -1) {	
 			free(message);
 			exit(1);//error
 		}
@@ -525,11 +531,11 @@ char* getAQSReply(int sockfd) {
 			for (i = 0; i < nread; i++) {
 				message[message_size + i] = buffer[i];
 			}
-			memset(buffer, 0, BUFFER_SIZE); //clear the buffer
+			memset(buffer, 0, STRING_SZ); //clear the buffer
 
 			message_size += nread;
 			if (message_size >= message_capacity) {
-				message_capacity += BUFFER_SIZE;
+				message_capacity += STRING_SZ;
 				message = realloc(message, message_capacity);
 				if (message == NULL) exit(1);
 			}
