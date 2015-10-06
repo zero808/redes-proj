@@ -13,8 +13,6 @@
 #include "constants.h"
 #include "functions.h"
 
-//#define NB_ANSWERS 5
-
 extern int errno;
 int SID;
 char ECPname[STRING_SZ];
@@ -237,18 +235,15 @@ int main(int argc, char **argv) {
 	    			if (ptr == NULL) exit(1);
 	    			
 	    			len = strlen(ptr) - 1;
-	    			if (ptr[len] = '\n') ptr[len] = '\0';
+	    			if (ptr[len] == '\n') ptr[len] = '\0';
             		else ptr[len + 1] = '\0';
 
-	    			printf("answers:%s\n", ptr);
+	    			printf("answers:«%s»\n", ptr);
   					
   					/* verify format of questionnaire answers
   					answer values (V1 to V5) are valid in the format "V1 V2 V3 V4 V5" */
   					n = verifyQuestAnswers(ptr, &T);
-  					if(n == -1) {
-						printf("Invalid format for questionnaire answers\n");
-						break;
-					}
+  					if(n == -1)	break;
 	    			
 	    			/* RQS SID QID V1 V2 V3 V4 V5 - User–TES Protocol (in TCP) */
   					
@@ -259,7 +254,7 @@ int main(int argc, char **argv) {
 	    			nbytes = n; //21+strlen(QID) ('\0' is not transmitted)
 	    			nleft = nbytes;
 	    			
-	    			printf("rqs_request=<%s> nleft before write=<%d>\n", ptr, nleft);
+	    			printf("rqs_request=«%s» nleft before write=«%d»\n", ptr, nleft);
 	    			
 	    			while (nleft > 0) {
 	    				nwritten = write(fd_tcp, ptr, nleft);
@@ -268,14 +263,14 @@ int main(int argc, char **argv) {
 	    				ptr += nwritten;
 	    			}
   					
-  					printf("nleft after write=<%d>\n", nleft);
+  					printf("nleft after write=«%d»\n", nleft);
   					
   					/* AQS QID score - User–TES Protocol (in TCP) */
   					ptr = getAQSReply(fd_tcp);
   					
   					ptr[strlen(ptr) - 1] = '\0'; //replace '\n' with '\0'
   					
-  					printf("AQS reply =<%s>\n", ptr);
+  					printf("AQS reply =«%s»\n", ptr);
   					
   					n = checkErrorMessages(ptr, "RQS");
 					if (n == -1) exit(1);

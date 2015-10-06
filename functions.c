@@ -231,20 +231,35 @@ int validTimeHour(int hour, int min, int sec) {
 
 int verifyQuestAnswers(char *answers, char ***argv) {
 	
-	int n;
+	int i, n, ch;
 	
-	//check only format, not values
   	n = parseString(answers, argv, 5+1);
-  	if (n == 5) {
+  	
+  	if (n == NB_ANSWERS) {
+  	
+  		//check format
   		char str[STRING_SZ];
-  		sprintf(str, "%s %s %s %s %s", (*argv)[0], (*argv)[1], (*argv)[2], (*argv)[3], (*argv)[4]);
-  		//printf("str:%s", str);
+  		n = sprintf(str, "%c %c %c %c %c", *(*argv)[0], *(*argv)[1], *(*argv)[2], *(*argv)[3], *(*argv)[4]);
+  		if (n < 0) { printf("Error in sprintf"); exit(1); }
+  		
   		if (strcmp(answers, str) != 0) {
-  			return -1; //invalid format
+  			printf("Invalid format for questionnaire answers\n");
+  			return -1;
   		}
+  		
+  		//check answer values
+  		for (i = 0; i < NB_ANSWERS; i++) {
+  			ch = *(*argv)[i];
+  			if (!((ch >= 'A' && ch <= 'D') || ch == 'N')) {
+  				printf("Invalid questionnaire answers\n");
+  				return -1;
+  			}
+  		}	
 	}
-	else
+	else {
+		printf("Invalid format for questionnaire answers\n");
 		return -1;
+	}
 	
 	return 0;
 }
