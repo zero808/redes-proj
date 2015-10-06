@@ -1,10 +1,10 @@
 all: ECP TES user
 
 ECP: ECP.o
-	gcc -o ECP ECP.o
+	gcc -std=gnu99 -O0 -ggdb -o ECP ECP.o
 
 ECP.o: ECP.c constants.h
-	gcc -c ECP.c 
+	gcc -std=gnu99 -O0 -ggdb -c ECP.c
 
 TES: TES.c
 	gcc TES.c -o TES
