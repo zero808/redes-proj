@@ -20,19 +20,27 @@ unsigned short int ECPport = PORT + GN; /* default port number */
 char filename[QID_SZ + 6]; //+6 for file extension and '\0'
 
 /*-------------------------------------------------------------------------------------
-| main
-+-------------------------------------------------------------------------------------*/
+ | main
+ +-------------------------------------------------------------------------------------*/
 
 int main(int argc, char **argv) {
 
-	int fd_tcp, fd_udp, i, n, nbytes, nleft, nwritten, nread, addrlen;
+	int fd_tcp, fd_udp, i, n, nbytes, nleft, nwritten, nread, addrlen;	
 	struct hostent *hostptr;
 	struct sockaddr_in serveraddr;
 	char *ptr, buffer[BUFFER_SZ];
-	void (*old_handler)(int);//interrupt handler
 	char usage[] = "usage: ./user SID [-n ECPname] [-p ECPport]";
+	void (*old_handler)(int);//interrupt handler
 	
-	if ((old_handler = signal(SIGPIPE, SIG_IGN)) == SIG_ERR) exit(1);//error
+	if ((old_handler = signal(SIGPIPE, SIG_IGN)) == SIG_ERR) {
+		perror("Error in signal");
+		exit(1);
+	}
+	
+	if (signal(SIGALRM, handler_alrm) == SIG_ERR) { 
+		perror("Error in signal");
+		exit(1); 
+	}
 
 	if(gethostname(ECPname, STRING_SZ) == -1)
 		printf("error: %s\n", strerror(errno));
@@ -92,14 +100,26 @@ int main(int argc, char **argv) {
 	    	case  0: 
 	    			/* list instruction */
 	    			
-	    			/* TQR - User–ECP Protocol (in UDP) */	    			
+	    			/*---------------------------------------------------------------------------
+  					 | TQR - User–ECP Protocol (in UDP)
+					 +--------------------------------------------------------------------------*/
+	    				    			
 	    			n = sendto(fd_udp, "TQR\n", 4, 0, (struct sockaddr*)&serveraddr, sizeof(serveraddr));
 	    			if (n == -1) exit(1); //error
-
- 					/* AWT nT T1 T2 ... TnT - User–ECP Protocol (in UDP) */
+ 					
+ 					/*---------------------------------------------------------------------------
+  					 | AWT nT T1 T2 ... TnT - User–ECP Protocol (in UDP)
+					 +--------------------------------------------------------------------------*/
+ 					
 					addrlen = sizeof(serveraddr);
-					n = recvfrom(fd_udp, buffer, BUFFER_SZ, 0, (struct sockaddr*)&serveraddr, &addrlen);
-					if(n==-1) exit(1);
+					
+					alarm(10);//generates the SIGALRM signal when the specified time has expired
+					if ((n = recvfrom(fd_udp, buffer, BUFFER_SZ, 0, (struct sockaddr*)&serveraddr, &addrlen)) == -1) {
+						perror("Error in recvfrom");
+						exit(1);
+					}
+					else
+						alarm(0); //cancel currently active alarm
 					
 					if (buffer[n-1] == '\n')
 						buffer[n-1] = '\0'; //replace '\n' with '\0'
@@ -124,6 +144,10 @@ int main(int argc, char **argv) {
 	    			
 	    	case  1: 
 	    			/* request instruction */
+	    			
+	    			/*---------------------------------------------------------------------------
+  					 | TER Tnn - User–ECP Protocol (in UDP)
+					 +--------------------------------------------------------------------------*/
 	    				    			    			
 	    			getchar();
 	    			ptr = fgets(topic, sizeof(topic), stdin);
@@ -138,17 +162,25 @@ int main(int argc, char **argv) {
 	    			//write at most 7 bytes because tnn is composed of 1 or 2 digits ('\0' is not trasmitted) 
 	    			snprintf(ter_request, 7, "TER %d\n", tnn);
 	    			
-	    			/* TER Tnn - User–ECP Protocol (in UDP) */
 	    			if (tnn > 9)
 	    				n = sendto(fd_udp, ter_request, 7, 0, (struct sockaddr*)&serveraddr, sizeof(serveraddr));
 	    			else
 	    				n = sendto(fd_udp, ter_request, 6, 0, (struct sockaddr*)&serveraddr, sizeof(serveraddr));
-	    			if (n == -1) exit(1); //error
+	    			if (n == -1) exit(1); //error    			
 	    			
-	    			/* AWTES IPTES portTES - User–ECP Protocol (in UDP) */
+	    			/*---------------------------------------------------------------------------
+  					 | AWTES IPTES portTES - User–ECP Protocol (in UDP)
+					 +--------------------------------------------------------------------------*/
+
 	    			addrlen = sizeof(serveraddr);
-					n = recvfrom(fd_udp, buffer, STRING_SZ, 0, (struct sockaddr*)&serveraddr, &addrlen);
-					if (n == -1) exit(1);
+					
+					alarm(10);//generates the SIGALRM signal when the specified time has expired
+					if ((n = recvfrom(fd_udp, buffer, STRING_SZ, 0, (struct sockaddr*)&serveraddr, &addrlen)) == -1) {
+						perror("Error in recvfrom");
+						exit(1);
+					}
+					else
+						alarm(0); //cancel currently active alarm						
 	    			
 	    			if (buffer[n - 1] == '\n')
 						buffer[n - 1] = '\0'; //replace '\n' with '\0'
@@ -190,7 +222,10 @@ int main(int argc, char **argv) {
 					if (hostptr == NULL) exit(1);
 	    			else printf("%s %hu\n", hostptr->h_name, portTES); //expected output from ECP's AWTES reply
 	    			
-	    			/* RQT SID - User–TES Protocol (in TCP) */
+	    			/*---------------------------------------------------------------------------
+  					 | RQT SID - User–TES Protocol (in TCP)
+					 +--------------------------------------------------------------------------*/
+	    			
 	    			serveraddr.sin_addr.s_addr = IPTES.s_addr; //TES IP address
 	    			serveraddr.sin_port = htons((u_short) portTES); //TCP port number
 	    			
@@ -203,8 +238,6 @@ int main(int argc, char **argv) {
 	    			ptr = rqt_request;
 	    			nbytes = n; //10 ('\0' is not transmitted)
 	    			
-	    			//printf("%s", ptr);
-	    			
 	    			/* write() may write a smaller number of bytes than solicited */
 	    			nleft = nbytes;
 	    			while (nleft > 0) {
@@ -214,7 +247,10 @@ int main(int argc, char **argv) {
 	    				ptr += nwritten;
 	    			}
 	    			
-	    			/* AQT QID time size data - User–TES Protocol (in TCP) */
+	    			/*---------------------------------------------------------------------------
+  					 | AQT QID time size data - User–TES Protocol (in TCP)
+					 +--------------------------------------------------------------------------*/
+	    			
 	    			n = getAQTReply(fd_tcp, QID, time, &size);
 	    			if (n == -1) {
 	    				printf("Invalid AQT reply\n");
@@ -224,11 +260,28 @@ int main(int argc, char **argv) {
 	    			printf("QID=<%s> time=<%s> size=<%zu>\n", QID, time, size);
 	    		
 	    			printf("received file %s\n", filename);
+	    			
+	    			close(fd_tcp);
 
 	    			break;
 	    			
 	    	case  2: 
 	    			/* submit instruction */
+	    			
+	    			fd_tcp = socket(AF_INET, SOCK_STREAM, 0); //TCP socket
+					if (fd_tcp == -1) exit(1); //error
+					
+					memset((void*)&serveraddr, (int)'\0', sizeof(serveraddr));
+					serveraddr.sin_family = AF_INET;
+	    			serveraddr.sin_addr.s_addr = IPTES.s_addr; //TES IP address
+	    			serveraddr.sin_port = htons((u_short) portTES); //TCP port number
+	    			
+	    			n = connect(fd_tcp, (struct sockaddr*)&serveraddr, sizeof(serveraddr));
+					if(n == -1) exit(1); //error
+	    			
+	    			/*---------------------------------------------------------------------------
+  					 | RQS SID QID V1 V2 V3 V4 V5 - User–TES Protocol (in TCP)
+					 +--------------------------------------------------------------------------*/
 	    			
 	    			getchar();
 	    			ptr = fgets(answers, sizeof(answers), stdin);
@@ -240,12 +293,9 @@ int main(int argc, char **argv) {
 
 	    			printf("answers:«%s»\n", ptr);
   					
-  					/* verify format of questionnaire answers
-  					answer values (V1 to V5) are valid in the format "V1 V2 V3 V4 V5" */
+  					/* verify questionnaire answers */
   					n = verifyQuestAnswers(ptr, &T);
   					if(n == -1)	break;
-	    			
-	    			/* RQS SID QID V1 V2 V3 V4 V5 - User–TES Protocol (in TCP) */
   					
   					n = sprintf(rqs_request, "RQS %d %s %s\n", SID, QID, answers);
   					if (n < 0) { printf("Error in sprintf"); exit(1); }
@@ -265,7 +315,10 @@ int main(int argc, char **argv) {
   					
   					printf("nleft after write=«%d»\n", nleft);
   					
-  					/* AQS QID score - User–TES Protocol (in TCP) */
+  					/*---------------------------------------------------------------------------
+  					 | AQS QID score - User–TES Protocol (in TCP)
+					 +--------------------------------------------------------------------------*/
+  					
   					ptr = getAQSReply(fd_tcp);
   					
   					ptr[strlen(ptr) - 1] = '\0'; //replace '\n' with '\0'

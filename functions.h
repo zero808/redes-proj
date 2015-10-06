@@ -21,6 +21,7 @@ int validTimeHour(int hour, int min, int sec);
 int checkErrorMessages(char* reply, char* request);
 int getAQTReply(int sockfd, char *qid, char* time, size_t *size);
 char* getAQSReply(int sockfd);
+void handler_alrm();
 
 #endif
 

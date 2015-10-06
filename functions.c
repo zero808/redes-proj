@@ -3,6 +3,7 @@
 #include <string.h>
 #include <netinet/in.h> /* for INET_ADDRSTRLEN */
 #include <unistd.h>
+#include <signal.h>
 #include <errno.h>
 
 #include "functions.h"
@@ -51,6 +52,11 @@ int action_selector() {
 	return action = -1;
 }
 
+void handler_alrm() {
+	
+	printf("socket timeout\n");
+	exit(1);
+}
 
 int parseString(char *line, char ***argv, int max_toks) {
 	char *buffer;
@@ -306,7 +312,7 @@ int checkErrorMessages(char* reply, char* request) {
 		}
 	}
 
-	if (strcmp(request, "RQS") == 0) {
+	if (strcmp(request, "AQS") == 0) {
 		if (strcmp(reply, "-1") == 0)
 			printf("Questionnaire submitted after the deadline\n");
 		else if (strcmp(reply, "-2") == 0)
