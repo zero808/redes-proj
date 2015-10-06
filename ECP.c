@@ -54,6 +54,7 @@ struct submission {
     int SID;
     char topic_name[TOPIC_NAME_SZ];
     int score;
+    struct submission *next;
 };
 
 /* the caller must free all the memory */
@@ -123,11 +124,6 @@ void initializeTopicScores(struct topic_score (*tsc)[NB_TOPICS]) {
     }
 }
 
-/* struct submission { */
-/*     int SID; */
-/*     char topic_name[TOPIC_NAME_SZ]; */
-/*     int score; */
-/*     struct submission *next; */
 /* }; */
 /* struct topic_score { */
 /*     char topic_name[TOPIC_NAME_SZ]; */
@@ -137,10 +133,15 @@ void initializeTopicScores(struct topic_score (*tsc)[NB_TOPICS]) {
 int saveScore(struct topic_score (*tsc)[NB_TOPICS], struct submission **sb, char *sid, char *topic, char *score) {
     int sco = 0;
     int index = 0;
+    int SID = 0;
     float temp = 0.0;
+    struct submission **current = NULL;
+    FILE *fp = NULL;
     if((tsc == NULL) || (sb == NULL) || (sid == NULL) || (topic == NULL) || (score == NULL))
         return -1;
     sco = atoi(score);
+    SID = atoi(sid);
+    current = sb;
 
     /* FIXME add mutexes */
 
@@ -169,11 +170,28 @@ int saveScore(struct topic_score (*tsc)[NB_TOPICS], struct submission **sb, char
     (*tsc)[index].average_score *= (*tsc)[index].submissions;
 
     /* now do the same for the other structure */
+    while((*current)->next != NULL) {
+        (*current) = (*current)->next;
+    }
+    (*current)->next = calloc(1, sizeof(struct submission));
+    (*current)->next->SID = SID;
+    strncpy((*current)->next->topic_name, topic, TOPIC_NAME_SZ);
+    (*current)->next->score = sco;
+    (*current)->next->next = NULL;
 
-    /* open the file with write permission */
-    /* read the current average score
-     * calculate the new average
-     * close the file */
+    /* open the file with write permission and create it if it doesn't exist */
+    fp = fopen(stats_file, "w+");
+    if(fp == NULL)
+        exit(EXIT_FAILURE);
+
+    for(index = 0; index < NB_TOPICS; ++index) {
+        fprintf(fp, "%s %d\n", (*tsc)[index].topic_name, (*tsc)[index].average_score);
+    }
+    for(current = sb; (*current) != NULL; (*current) = (*current)->next) {
+        fprintf(fp, "%d %s %d\n", (*current)->SID, (*current)->topic_name, (*current)->score);
+    }
+    if(fclose(fp))
+        exit(EXIT_FAILURE);
 
 
     return 0;
