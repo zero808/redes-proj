@@ -321,6 +321,22 @@ int checkErrorMessages(char* reply, char* request) {
 		return -1;
 	}
 	
+	if (strcmp(request, "TQR") == 0) {
+		if (strncmp(reply, "AWT ", 4) != 0)
+			return -1;
+		
+	}
+	
+	if (strcmp(request, "TER") == 0) {
+		if (strncmp(reply, "AWTES ", 6) != 0)
+			return -1;	
+	} 
+	
+	if (strcmp(request, "RQS") == 0) {
+		if (strncmp(reply, "AQS ", 4) != 0)
+			return -1;
+	}
+	
 	return 0;
 }
 
