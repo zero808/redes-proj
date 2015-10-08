@@ -25,7 +25,7 @@ char filename[QID_SZ + 6]; //+6 for file extension and '\0'
 
 int main(int argc, char **argv) {
 
-	int fd_tcp, fd_udp, i, n, nbytes, nleft, nwritten, nread, addrlen;	
+	int fd_tcp, fd_udp, i, n, nbytes, nleft, nwritten, addrlen;	
 	struct hostent *hostptr;
 	struct sockaddr_in serveraddr;
 	char *ptr, buffer[BUFFER_SZ];
@@ -80,7 +80,6 @@ int main(int argc, char **argv) {
 	int action, len;
 	size_t size;
 	int tnn; //questionnaire topic number (1 <= tnn <= 99)
-	int nt; //number of topics
 	char **T; //array of tokens
 	char topic[4], ter_request[8], rqt_request[8], rqs_request[STRING_SZ], QID[QID_SZ + 1], time[TIME_SZ + 1], answers[STRING_SZ];
 	const char *iptes_addr; //TES IP address for the transfer of a questionnaire file
