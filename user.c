@@ -121,6 +121,7 @@ int main(int argc, char **argv) {
 					else
 						alarm(0); //cancel currently active alarm
 					
+					
 					if (n > 0) {
 	    				if (buffer[n - 1] == '\n')
 	    					buffer[n - 1] = '\0'; //replace '\n' with '\0'
