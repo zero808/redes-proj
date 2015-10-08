@@ -178,7 +178,7 @@ int saveScore(struct topic_score (*tsc)[NB_TOPICS], struct submission **sb, char
         exit(EXIT_FAILURE);
 
     for(index = 0; index < NB_TOPICS; ++index) {
-        fprintf(fp, "%s %d\n", (*tsc)[index].topic_name, (*tsc)[index].average_score);
+        fprintf(fp, "%s %f\n", (*tsc)[index].topic_name, (*tsc)[index].average_score);
     }
     for(current = sb; (*current) != NULL; (*current) = (*current)->next) {
         fprintf(fp, "%d %s %d\n", (*current)->SID, (*current)->topic_name, (*current)->score);
@@ -332,6 +332,7 @@ int main(int argc, char **argv) {
 
             if(qid <= topics->lines_used) {
                 /* awtes iptes portTes */
+                puts("foda-se");
                 strncat(awtes, topics->lines[qid-1], SIZE_AWTES);
                 strncat(awtes, "\n", SIZE_AWTES);
                 printf("awtes: %s\n", awtes);
@@ -339,8 +340,10 @@ int main(int argc, char **argv) {
                 strncpy(awtes, "AWTES ", 7 * sizeof(char)); /* reset it to the original string */
 
             }
-            else
+            else {
                 ret=sendto(fd,"EOF\n", 4*sizeof(char),0,(struct sockaddr*)&clientaddr,addrlen);
+                puts("ccc");
+            }
             if(ret==-1)exit(1);
             else {
                 puts("entrei");
