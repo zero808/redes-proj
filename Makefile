@@ -26,3 +26,6 @@ functions.o: functions.c functions.h
 
 clean:
 	rm -f ECP TES user *.o
+
+zip:
+	zip proj_55.zip *.c *.h Makefile *.pdf *.txt README.md
