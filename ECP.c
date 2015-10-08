@@ -30,7 +30,7 @@
 /* reply to TES server */
 #define SIZE_AWI 30
 /* buffer to read requests to the server */
-#define BUFFER_SIZE 128
+#define BUFFER_SIZE 4000
 /* file names */
 const char topics_file[11] = "topics.txt";
 const char stats_file[10] = "stats.txt";
@@ -83,26 +83,26 @@ struct file_lines* readTopics(const char *filename) {
         strncpy(fl->lines[i], line, len);
         fl->lines[i][len - 1] = '\0'; /* ditch the \n */
         ++(fl->lines_used);
+        ++i;
     }
     return fl;
 }
 
 int parseRequest(char *line, char ***argv, int max_toks) {
-    char *buffer = NULL;
-    int argc = 0;
-    size_t length = 0;;
+    char *buffer;
+    int argc;
+    const char delim[] = " \t";
 
-    length = strlen(line);
-    buffer = (char*) calloc(length, sizeof(char));
-    strncpy(buffer,line, length);
+    buffer = (char*) calloc((strlen(line) + 1), sizeof(char));
+    strcpy(buffer,line);
 
     *argv = (char**) calloc(max_toks, sizeof(char**));
 
-    (*argv)[argc++] = strtok(buffer, " ");
-    while ((((*argv)[argc] = strtok(NULL, " ")) != NULL) && (argc < max_toks))
-        ++argc;
+    argc = 0;
+    (*argv)[argc++] = strtok(buffer, delim);
+    while ((((*argv)[argc] = strtok(NULL, delim)) != NULL) && (argc < max_toks))
+	++argc;
 
-    free(buffer);
     return argc;
 }
 
@@ -137,8 +137,6 @@ int saveScore(struct topic_score (*tsc)[NB_TOPICS], struct submission **sb, char
     sco = atoi(score);
     SID = atoi(sid);
     current = sb;
-
-    /* FIXME add mutexes */
 
     for (index = 0; index < NB_TOPICS; ++index) {
         /* the topic is not already present in the array */
@@ -257,24 +255,24 @@ int main(int argc, char **argv) {
     topics = readTopics(topics_file);
     /* put the number on a string, it's the nT for the AWT reply */
     snprintf(temp, 3*sizeof(char), "%d", topics->lines_used);
+    puts(topics->lines[0]);
     j += strlen(temp);
-    strncat(&awt[j], temp, strlen(temp));
-
+    int xpto = strlen(awt);
+    strncat(awt, temp, strlen(temp));
+    awt[j+xpto] = '\0';
     for(unsigned int i = 0; i < topics->lines_used; i = i){
-        strncpy(temp, topics->lines[i], REPLY_MAX_SIZE);
-        tempp = strtok(temp, " "); /* the topic name */
+        char xpto2[100];
+        strncpy(xpto2, topics->lines[i], REPLY_MAX_SIZE);
+        tempp = strtok(xpto2, " "); /* the topic name */
 
         /* append the topic name to the awt reply */
         /* NOTE this only works when the topic name
          * is only one word. In case the topic's name
          * is two words use an hifen to separate it */
-        strncat(&awt[j], tempp, REPLY_MAX_SIZE);
+        strcat(awt, " ");
+        strcat(awt, tempp);
         if(++i < topics->lines_used) {
-            /* update j */
-            j += strlen(topics->lines[i]);
-            /* add a separator */
-            strncat(&awt[j], " ", 2*sizeof(char));
-            ++j; /* +1 for the whitespace */
+            strcat(awt, " ");
             /* now use strtok again to get rid of the topic name
              * in order to have a string just with the IP and Port
              * of the respective TES server for that topic */
@@ -286,8 +284,11 @@ int main(int argc, char **argv) {
         }
 
     }
+    printf("awt 2: %s\n", awt);
     /* add the \n to the end of the string */
     strncat(awt, "\n", REPLY_MAX_SIZE * sizeof(char));
+    printf("awt 3: %s\n", awt);
+
 
     while(1){
 
@@ -296,52 +297,62 @@ int main(int argc, char **argv) {
         if(nread==-1)exit(1);//error
         buffer[nread] = '\0';
 
-        pid = fork();
-        if(pid == -1)
-            exit(EXIT_FAILURE);
-        /* Child process */
-        if(pid == 0) {
+        /* pid = fork(); */
+        /* if(pid == -1) */
+        /*     exit(EXIT_FAILURE); */
+        /* /1* Child process *1/ */
+        /* if(pid == 0) { */
 
+        /* divide what we read into tokens */
+        parseRequest(buffer, &toks, MAX_TOKENS);
 
-            /* divide what we read into tokens */
-            parseRequest(buffer, &toks, MAX_TOKENS);
-
-            /* User - ECP */
-            /* TQR */
-            if(strncmp(toks[0], "TQR\n", 5* sizeof(char)) == 0) {
-                /* FIXME */
-                printf("TQR - Sent by [%s :%hu]\n",inet_ntoa(clientaddr.sin_addr),ntohs(clientaddr.sin_port));
-                if(topics->lines_used > 0) {
-                    ret=sendto(fd,awt, strlen(awt)*sizeof(char),0,(struct sockaddr*)&clientaddr,addrlen);
-                }
-                else
-                    ret=sendto(fd,"EOF\n", 4*sizeof(char),0,(struct sockaddr*)&clientaddr,addrlen);
-                if(ret==-1)exit(1);
+        /* User - ECP */
+        /* TQR */
+        if(strncmp(toks[0], "TQR\n", 5* sizeof(char)) == 0) {
+            printf("TQR - Sent by [%s :%hu]\n",inet_ntoa(clientaddr.sin_addr),ntohs(clientaddr.sin_port));
+            if(topics->lines_used > 0) {
+                puts(awt);
+                ret=sendto(fd,awt, strlen(awt)*sizeof(char),0,(struct sockaddr*)&clientaddr,addrlen);
             }
+            else {
+                ret=sendto(fd,"EOF\n", 4*sizeof(char),0,(struct sockaddr*)&clientaddr,addrlen);
+            }
+            if(ret==-1)exit(1);
+            else {
+                memset(buffer, 0, BUFFER_SIZE);
+                continue;
+            }
+        }
 
-            /* TER Tnn */
-            if(strncmp(toks[0], "TER\n", 5* sizeof(char)) == 0) {
-                printf("TER - Sent by [%s :%hu]\n",inet_ntoa(clientaddr.sin_addr),ntohs(clientaddr.sin_port));
-                /* it's not the other QID...*/
-                qid =strtol(toks[1], NULL, 10);
+        /* TER Tnn */
+        if(strncmp(toks[0], "TER", 5* sizeof(char)) == 0) {
+            printf("TER - Sent by [%s :%hu]\n",inet_ntoa(clientaddr.sin_addr),ntohs(clientaddr.sin_port));
+            /* it's not the other QID...*/
+            qid =strtol(toks[1], NULL, 10);
 
-                if(qid <= topics->lines_used) {
+            if(qid <= topics->lines_used) {
                 /* awtes iptes portTes */
-                    strncat(awtes, topics->lines[qid-1], SIZE_AWTES);
-                    strncat(awtes, "\n", SIZE_AWTES);
-                    ret=sendto(fd, awtes, strlen(topics->lines[qid -1]) *sizeof(char),0,(struct sockaddr*)&clientaddr,addrlen);
-                    strncpy(awtes, "AWTES ", 7 * sizeof(char)); /* reset it to the original string */
-
-                }
-                else
-                    ret=sendto(fd,"EOF\n", 4*sizeof(char),0,(struct sockaddr*)&clientaddr,addrlen);
-                if(ret==-1)exit(1);
+                strncat(awtes, topics->lines[qid-1], SIZE_AWTES);
+                strncat(awtes, "\n", SIZE_AWTES);
+                printf("awtes: %s\n", awtes);
+                ret=sendto(fd, awtes, strlen(topics->lines[qid -1]) *sizeof(char),0,(struct sockaddr*)&clientaddr,addrlen);
+                strncpy(awtes, "AWTES ", 7 * sizeof(char)); /* reset it to the original string */
 
             }
+            else
+                ret=sendto(fd,"EOF\n", 4*sizeof(char),0,(struct sockaddr*)&clientaddr,addrlen);
+            if(ret==-1)exit(1);
+            else {
+                puts("entrei");
+                memset(buffer, 0, BUFFER_SIZE);
+                continue;
+            }
 
-            /* TES - ECP */
-            /* IQR */
-            if(strncmp(toks[0], "IQR\n", 5*sizeof(char)) &&
+        }
+
+        /* TES - ECP */
+        /* IQR */
+        if(strncmp(toks[0], "IQR\n", 5*sizeof(char)) &&
                 /* verify that SID is a 5 digit number */
                 (strlen(toks[1]) == 5) &&
                 /* verify that QID has at most 24 characters*/
@@ -350,31 +361,36 @@ int main(int argc, char **argv) {
                 (checkIfTopicExists(toks[3], topics) == 0) &&
                 /* verify that 0 <= score <= 100 */
                 (atoi(toks[4]) >= 0) && (atoi(toks[4]) <= 100)) {
-                printf("IQR - Sent by [%s :%hu]\n",inet_ntoa(clientaddr.sin_addr),ntohs(clientaddr.sin_port));
+            puts("entrou no IQR");
+            printf("IQR - Sent by [%s :%hu]\n",inet_ntoa(clientaddr.sin_addr),ntohs(clientaddr.sin_port));
 
-                strncat(&(awi[5]), toks[2], SIZE_AWI); /* starts at the 5th char */
-                awi[strlen(awi)] = '\n';
-                ret = sendto(fd, awi, SIZE_AWI * sizeof(char), 0,(struct sockaddr*)&clientaddr,addrlen);
-                strncpy(awi, "AWI ", 5 * sizeof(char)); /* reset it to the original string */
-                /* actually save the score */
-                saveScore(&scores, &submissions, toks[1], toks[3], toks[4]);
-            }
-            else {
-                ret = sendto(fd, "ERR\n", 4 * sizeof(char), 0,(struct sockaddr*)&clientaddr,addrlen);
-            }
-            if(ret==-1)exit(1);
-            memset(buffer, 0, BUFFER_SIZE);
-
+            strncat(&(awi[5]), toks[2], SIZE_AWI); /* starts at the 5th char */
+            awi[strlen(awi)] = '\n';
+            ret = sendto(fd, awi, SIZE_AWI * sizeof(char), 0,(struct sockaddr*)&clientaddr,addrlen);
+            strncpy(awi, "AWI ", 5 * sizeof(char)); /* reset it to the original string */
+            /* actually save the score */
+            saveScore(&scores, &submissions, toks[1], toks[3], toks[4]);
         }
         else {
-            /* Parent process */
-            do
-                ret = close(fd);
-            while((ret == -1) && (errno == EINTR));
-
-            if(ret == -1)
-                exit(EXIT_FAILURE);
+            puts("entrou no IQRfail");
+            ret = sendto(fd, "ERR\n", 4 * sizeof(char), 0,(struct sockaddr*)&clientaddr,addrlen);
         }
+        if(ret==-1)exit(1);
+        else {
+            memset(buffer, 0, BUFFER_SIZE);
+            continue;
+        }
+
+        /* } */
+        /* else { */
+        /*     /1* Parent process *1/ */
+        /*     do */
+        /*         ret = close(fd); */
+        /*     while((ret == -1) && (errno == EINTR)); */
+
+        /*     if(ret == -1) */
+        /*         exit(EXIT_FAILURE); */
+        /* } */
     }
 
     //close(fd);

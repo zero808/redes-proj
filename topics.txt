@@ -1,1 +1,2 @@
-Socket Programming [TES IP address] [TES Port]
+Socket-Programming localhost 59000
+cenas localhost 59001
