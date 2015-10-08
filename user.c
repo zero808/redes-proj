@@ -319,13 +319,21 @@ int main(int argc, char **argv) {
   					 | AQS QID score - User–TES Protocol (in TCP)
 					 +--------------------------------------------------------------------------*/
   					
-  					ptr = getAQSReply(fd_tcp);
+  					ptr = getAQSReply(fd_tcp);  					
   					
-  					ptr[strlen(ptr) - 1] = '\0'; //replace '\n' with '\0'
+  					if (strlen(ptr) > 0) {
+  						len = strlen(ptr) - 1;
+  						if (ptr[len] == '\n')
+  							ptr[len] = '\0'; //replace '\n' with '\0'
+  						else
+  							exit(1);
+  					}
+  					else
+  						exit(1);
   					
   					printf("AQS reply =«%s»\n", ptr);
   					
-  					n = checkErrorMessages(ptr, "RQS");
+  					n = checkErrorMessages(ptr, "AQS");
 					if (n == -1) exit(1);
   					
   					//verify received protocol message
