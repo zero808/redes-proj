@@ -102,6 +102,7 @@ int parseRequest(char *line, char ***argv, int max_toks) {
     while ((((*argv)[argc] = strtok(NULL, " ")) != NULL) && (argc < max_toks))
         ++argc;
 
+    free(buffer);
     return argc;
 }
 
@@ -124,12 +125,6 @@ void initializeTopicScores(struct topic_score (*tsc)[NB_TOPICS]) {
     }
 }
 
-/* }; */
-/* struct topic_score { */
-/*     char topic_name[TOPIC_NAME_SZ]; */
-/*     float average_score; */
-/*     int sumbmissions; */
-/* }; */
 int saveScore(struct topic_score (*tsc)[NB_TOPICS], struct submission **sb, char *sid, char *topic, char *score) {
     int sco = 0;
     int index = 0;
@@ -203,7 +198,7 @@ int main(int argc, char **argv) {
     struct sockaddr_in serveraddr, clientaddr;
 
     /* buffer to save incoming requests */
-    char buffer[BUFFER_SIZE];
+    char buffer[BUFFER_SIZE] = "";
     /* to tokenize a request */
     char **toks = NULL;
     /* to use when replying to requests from user */
@@ -213,6 +208,10 @@ int main(int argc, char **argv) {
     /* same for AWTES */
     char awtes[SIZE_AWTES] = "AWTES ";
     /* save the scores for each topic in memory */
+    unsigned int j = 5; /* 'a' 'w' 't' ' ' */
+    /* use for whenever we need to hold a string temporarily */
+    char temp[BUFFER_SIZE] = "";
+    char *tempp = NULL;
     struct topic_score scores[NB_TOPICS];
     /* each student submission */
     struct submission *submissions = NULL;
@@ -256,29 +255,36 @@ int main(int argc, char **argv) {
 
     /* read topics.txt and keep it in memory to avoid reading it everytime */
     topics = readTopics(topics_file);
-    /* FIXME were copying strings twice, just create the final string when we read from file
-     * and do it in its own thread */
-    unsigned int j = 5; /* 'a' 'w' 't' ' ' */
-    /* 25 do nome do topico + '\0' */
-    char temp[26] = "";
-    /* put the number on a string */
+    /* put the number on a string, it's the nT for the AWT reply */
     snprintf(temp, 3*sizeof(char), "%d", topics->lines_used);
     j += strlen(temp);
-    printf("len do temp: %d\n", j);
     strncat(&awt[j], temp, strlen(temp));
 
     for(unsigned int i = 0; i < topics->lines_used; i = i){
-        /* FIXME
-         * we only want the topic name, so we have to remove
-         * the IP and port of the server */
-        strncat(&awt[j], topics->lines[i], REPLY_MAX_SIZE);
+        strncpy(temp, topics->lines[i], REPLY_MAX_SIZE);
+        tempp = strtok(temp, " "); /* the topic name */
+
+        /* append the topic name to the awt reply */
+        /* NOTE this only works when the topic name
+         * is only one word. In case the topic's name
+         * is two words use an hifen to separate it */
+        strncat(&awt[j], tempp, REPLY_MAX_SIZE);
         if(++i < topics->lines_used) {
             /* update j */
             j += strlen(topics->lines[i]);
             /* add a separator */
             strncat(&awt[j], " ", 2*sizeof(char));
             ++j; /* +1 for the whitespace */
+            /* now use strtok again to get rid of the topic name
+             * in order to have a string just with the IP and Port
+             * of the respective TES server for that topic */
+            tempp = strtok(NULL, " "); /* IP */
+            strcpy(topics->lines[i-1], tempp); /* save ip */
+            tempp = strtok(NULL, " "); /* Port */
+            strcat(topics->lines[i-1], " "); /* append a separator */
+            strcat(topics->lines[i-1], tempp ); /* append the port */
         }
+
     }
     /* add the \n to the end of the string */
     strncat(awt, "\n", REPLY_MAX_SIZE * sizeof(char));
@@ -304,6 +310,7 @@ int main(int argc, char **argv) {
             /* TQR */
             if(strncmp(toks[0], "TQR\n", 5* sizeof(char)) == 0) {
                 /* FIXME */
+                printf("TQR - Sent by [%s :%hu]\n",inet_ntoa(clientaddr.sin_addr),ntohs(clientaddr.sin_port));
                 if(topics->lines_used > 0) {
                     ret=sendto(fd,awt, strlen(awt)*sizeof(char),0,(struct sockaddr*)&clientaddr,addrlen);
                 }
@@ -314,17 +321,16 @@ int main(int argc, char **argv) {
 
             /* TER Tnn */
             if(strncmp(toks[0], "TER\n", 5* sizeof(char)) == 0) {
+                printf("TER - Sent by [%s :%hu]\n",inet_ntoa(clientaddr.sin_addr),ntohs(clientaddr.sin_port));
+                /* it's not the other QID...*/
                 qid =strtol(toks[1], NULL, 10);
 
                 if(qid <= topics->lines_used) {
                 /* awtes iptes portTes */
-                    /* awtes = calloc(strlen(topics->lines[qui-1] + 2), sizeof(char)); */
-                    /* if(awtes == NULL) exit(EXIT_FAILURE); */
                     strncat(awtes, topics->lines[qid-1], SIZE_AWTES);
                     strncat(awtes, "\n", SIZE_AWTES);
                     ret=sendto(fd, awtes, strlen(topics->lines[qid -1]) *sizeof(char),0,(struct sockaddr*)&clientaddr,addrlen);
                     strncpy(awtes, "AWTES ", 7 * sizeof(char)); /* reset it to the original string */
-                    /* free(awtes); awtes = NULL; */
 
                 }
                 else
@@ -344,6 +350,7 @@ int main(int argc, char **argv) {
                 (checkIfTopicExists(toks[3], topics) == 0) &&
                 /* verify that 0 <= score <= 100 */
                 (atoi(toks[4]) >= 0) && (atoi(toks[4]) <= 100)) {
+                printf("IQR - Sent by [%s :%hu]\n",inet_ntoa(clientaddr.sin_addr),ntohs(clientaddr.sin_port));
 
                 strncat(&(awi[5]), toks[2], SIZE_AWI); /* starts at the 5th char */
                 awi[strlen(awi)] = '\n';
