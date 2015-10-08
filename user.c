@@ -121,10 +121,14 @@ int main(int argc, char **argv) {
 					else
 						alarm(0); //cancel currently active alarm
 					
-					if (buffer[n-1] == '\n')
-						buffer[n-1] = '\0'; //replace '\n' with '\0'
-					else
-						exit(1);
+					if (n > 0) {
+	    				if (buffer[n - 1] == '\n')
+	    					buffer[n - 1] = '\0'; //replace '\n' with '\0'
+	    				else
+	    					exit(1);
+	    			}
+	    			else
+	    				exit(1);
 					
 					n = checkErrorMessages(buffer, "TQR");
 					if(n == -1) exit(1);
@@ -182,10 +186,14 @@ int main(int argc, char **argv) {
 					else
 						alarm(0); //cancel currently active alarm						
 	    			
-	    			if (buffer[n - 1] == '\n')
-						buffer[n - 1] = '\0'; //replace '\n' with '\0'
-					else
-						exit(1);
+	    			if (n > 0) {
+	    				if (buffer[n - 1] == '\n')
+	    					buffer[n - 1] = '\0'; //replace '\n' with '\0'
+	    				else
+	    					exit(1);
+	    			}
+	    			else
+	    				exit(1);
 	    			
 					n = checkErrorMessages(buffer, "TER");
 					if (n == -1) exit(1);
