@@ -314,28 +314,28 @@ int checkErrorMessages(char* reply, char* request) {
 	}
 
 	if (strcmp(request, "AQS") == 0) {
-		if (strcmp(reply, "-1") == 0)
+		if (strcmp(reply, "-1") == 0) {
 			printf("Questionnaire submitted after the deadline\n");
-		else if (strcmp(reply, "-2") == 0)
+			return -1;
+		}
+		else if (strcmp(reply, "-2") == 0) {
 			printf("SID-QID pair does not match\n");
-			
-		return -1;
+			return -1;
+		}
+		else if (strncmp(reply, "AQS ", 4) != 0) {
+			printf("Invalid AQS reply\n");
+			return -1;
+		}
 	}
 	
 	if (strcmp(request, "TQR") == 0) {
 		if (strncmp(reply, "AWT ", 4) != 0)
 			return -1;
-		
 	}
 	
 	if (strcmp(request, "TER") == 0) {
 		if (strncmp(reply, "AWTES ", 6) != 0)
 			return -1;	
-	} 
-	
-	if (strcmp(request, "RQS") == 0) {
-		if (strncmp(reply, "AQS ", 4) != 0)
-			return -1;
 	}
 	
 	return 0;
