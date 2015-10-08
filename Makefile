@@ -1,22 +1,28 @@
+CC=gcc
+# CFLAGS=-std=gnu99 -O3
+CFLAGS=-std=gnu99 -Wall -O0 -ggdb
 all: ECP TES user
 
 ECP: ECP.o
-	gcc -std=gnu99 -Wall -O0 -ggdb -o ECP ECP.o
+	$(CC) $(CLFAGS) -o ECP ECP.o
 
 ECP.o: ECP.c constants.h
-	gcc -std=gnu99 -Wall -O0 -ggdb -c ECP.c
+	$(CC) $(CFLAGS) -c ECP.c
 
-TES: TES.c
-	gcc -Wall TES.c -o TES
+TES: TES.o
+	$(CC) $(CFLAGS) -o TES TES.o
+
+TES.o: TES.c
+	$(CC) $(CFLAGS) -c TES.c
 
 user: user.o functions.o
-	gcc -Wall -o user user.o functions.o
+	$(CC) $(CFLAGS) -o user user.o functions.o
 
 user.o: user.c constants.h
-	gcc -Wall -c user.c
+	$(CC) $(CFLAGS) -c user.c
 
 functions.o: functions.c functions.h
-	gcc -Wall -c functions.c
+	$(CC) $(CFLAGS) -c functions.c
 
 clean:
 	rm -f ECP TES user *.o

@@ -59,7 +59,6 @@ struct submission {
 
 /* the caller must free all the memory */
 struct file_lines* readTopics(const char *filename) {
-    unsigned int lines = 0;
     int i = 0;
     FILE *fp = fopen(filename,"r");
     char * line = NULL;
@@ -101,7 +100,7 @@ int parseRequest(char *line, char ***argv, int max_toks) {
     argc = 0;
     (*argv)[argc++] = strtok(buffer, delim);
     while ((((*argv)[argc] = strtok(NULL, delim)) != NULL) && (argc < max_toks))
-	++argc;
+++argc;
 
     return argc;
 }
@@ -219,7 +218,6 @@ int main(int argc, char **argv) {
     struct file_lines *topics = NULL;
     unsigned short int ECPport = PORT + GN;
     char usage[] = "usage: ./ECP [-p ECPport]";
-    pid_t pid;
     void(*old_handler)(int);//interrupt handler
 
     /* Avoid zombies when child processes die. */
@@ -287,8 +285,6 @@ int main(int argc, char **argv) {
         memset(xpto2, 0, 100);
 
     }
-    puts(topics->lines[0]);
-    puts(topics->lines[1]);
     /* add the \n to the end of the string */
     strncat(awt, "\n", REPLY_MAX_SIZE * sizeof(char));
 
@@ -299,12 +295,6 @@ int main(int argc, char **argv) {
         nread=recvfrom(fd, buffer, BUFFER_SIZE, 0, (struct sockaddr*) &clientaddr, &addrlen);
         if(nread==-1)exit(1);//error
         buffer[nread] = '\0';
-
-        /* pid = fork(); */
-        /* if(pid == -1) */
-        /*     exit(EXIT_FAILURE); */
-        /* /1* Child process *1/ */
-        /* if(pid == 0) { */
 
         /* divide what we read into tokens */
         parseRequest(buffer, &toks, MAX_TOKENS);
@@ -332,30 +322,22 @@ int main(int argc, char **argv) {
             printf("TER - Sent by [%s :%hu]\n",inet_ntoa(clientaddr.sin_addr),ntohs(clientaddr.sin_port));
             /* it's not the other QID...*/
             qid =strtol(toks[1], NULL, 10);
-            printf("qid: %d\n", qid);
 
             if(qid <= topics->lines_used) {
                 /* awtes iptes portTes */
-                puts("foda-se");
-                puts(topics->lines[0]);
-                puts(topics->lines[1]);
                 strncat(awtes, topics->lines[qid-1], SIZE_AWTES);
                 /* strncat(awtes, "\n", SIZE_AWTES); */
                 awtes[strlen(awtes)] = '\n';
-                printf("awtes: %s\n", awtes);
                 /* ret=sendto(fd, awtes, strlen(topics->lines[qid -1]) *sizeof(char),0,(struct sockaddr*)&clientaddr,addrlen); */
                 ret=sendto(fd, awtes, strlen(awtes) *sizeof(char),0,(struct sockaddr*)&clientaddr,addrlen);
-                printf("len do awtes = %d\n", strlen(awtes));
                 strncpy(awtes, "AWTES ", 7 * sizeof(char)); /* reset it to the original string */
 
             }
             else {
                 ret=sendto(fd,"EOF\n", 4*sizeof(char),0,(struct sockaddr*)&clientaddr,addrlen);
-                puts("ccc");
             }
             if(ret==-1)exit(1);
             else {
-                puts("entrei");
                 memset(buffer, 0, BUFFER_SIZE);
                 continue;
             }
@@ -373,7 +355,6 @@ int main(int argc, char **argv) {
                 (checkIfTopicExists(toks[3], topics) == 0) &&
                 /* verify that 0 <= score <= 100 */
                 (atoi(toks[4]) >= 0) && (atoi(toks[4]) <= 100)) {
-            puts("entrou no IQR");
             printf("IQR - Sent by [%s :%hu]\n",inet_ntoa(clientaddr.sin_addr),ntohs(clientaddr.sin_port));
 
             strncat(&(awi[5]), toks[2], SIZE_AWI); /* starts at the 5th char */
@@ -384,7 +365,6 @@ int main(int argc, char **argv) {
             saveScore(&scores, &submissions, toks[1], toks[3], toks[4]);
         }
         else {
-            puts("entrou no IQRfail");
             ret = sendto(fd, "ERR\n", 4 * sizeof(char), 0,(struct sockaddr*)&clientaddr,addrlen);
         }
         if(ret==-1)exit(1);
@@ -392,19 +372,8 @@ int main(int argc, char **argv) {
             memset(buffer, 0, BUFFER_SIZE);
             continue;
         }
-
-        /* } */
-        /* else { */
-        /*     /1* Parent process *1/ */
-        /*     do */
-        /*         ret = close(fd); */
-        /*     while((ret == -1) && (errno == EINTR)); */
-
-        /*     if(ret == -1) */
-        /*         exit(EXIT_FAILURE); */
-        /* } */
     }
 
-    //close(fd);
-    //exit(EXIT_SUCCESS);
+    close(fd);
+    exit(EXIT_SUCCESS);
 }
