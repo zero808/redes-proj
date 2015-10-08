@@ -255,13 +255,12 @@ int main(int argc, char **argv) {
     topics = readTopics(topics_file);
     /* put the number on a string, it's the nT for the AWT reply */
     snprintf(temp, 3*sizeof(char), "%d", topics->lines_used);
-    puts(topics->lines[0]);
     j += strlen(temp);
     int xpto = strlen(awt);
     strncat(awt, temp, strlen(temp));
     awt[j+xpto] = '\0';
     for(unsigned int i = 0; i < topics->lines_used; i = i){
-        char xpto2[100];
+        char xpto2[100] = "";
         strncpy(xpto2, topics->lines[i], REPLY_MAX_SIZE);
         tempp = strtok(xpto2, " "); /* the topic name */
 
@@ -269,25 +268,29 @@ int main(int argc, char **argv) {
         /* NOTE this only works when the topic name
          * is only one word. In case the topic's name
          * is two words use an hifen to separate it */
-        strcat(awt, " ");
+        if(i == 0)
+            strcat(awt, " ");
         strcat(awt, tempp);
         if(++i < topics->lines_used) {
             strcat(awt, " ");
             /* now use strtok again to get rid of the topic name
              * in order to have a string just with the IP and Port
              * of the respective TES server for that topic */
+        }
             tempp = strtok(NULL, " "); /* IP */
+        /* strcat(awt, tempp); */
             strcpy(topics->lines[i-1], tempp); /* save ip */
             tempp = strtok(NULL, " "); /* Port */
             strcat(topics->lines[i-1], " "); /* append a separator */
             strcat(topics->lines[i-1], tempp ); /* append the port */
-        }
+
+        memset(xpto2, 0, 100);
 
     }
-    printf("awt 2: %s\n", awt);
+    puts(topics->lines[0]);
+    puts(topics->lines[1]);
     /* add the \n to the end of the string */
     strncat(awt, "\n", REPLY_MAX_SIZE * sizeof(char));
-    printf("awt 3: %s\n", awt);
 
 
     while(1){
@@ -329,14 +332,20 @@ int main(int argc, char **argv) {
             printf("TER - Sent by [%s :%hu]\n",inet_ntoa(clientaddr.sin_addr),ntohs(clientaddr.sin_port));
             /* it's not the other QID...*/
             qid =strtol(toks[1], NULL, 10);
+            printf("qid: %d\n", qid);
 
             if(qid <= topics->lines_used) {
                 /* awtes iptes portTes */
                 puts("foda-se");
+                puts(topics->lines[0]);
+                puts(topics->lines[1]);
                 strncat(awtes, topics->lines[qid-1], SIZE_AWTES);
-                strncat(awtes, "\n", SIZE_AWTES);
+                /* strncat(awtes, "\n", SIZE_AWTES); */
+                awtes[strlen(awtes)] = '\n';
                 printf("awtes: %s\n", awtes);
-                ret=sendto(fd, awtes, strlen(topics->lines[qid -1]) *sizeof(char),0,(struct sockaddr*)&clientaddr,addrlen);
+                /* ret=sendto(fd, awtes, strlen(topics->lines[qid -1]) *sizeof(char),0,(struct sockaddr*)&clientaddr,addrlen); */
+                ret=sendto(fd, awtes, strlen(awtes) *sizeof(char),0,(struct sockaddr*)&clientaddr,addrlen);
+                printf("len do awtes = %d\n", strlen(awtes));
                 strncpy(awtes, "AWTES ", 7 * sizeof(char)); /* reset it to the original string */
 
             }

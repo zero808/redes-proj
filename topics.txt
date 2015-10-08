@@ -1,2 +1,2 @@
-Socket-Programming localhost 59000
-cenas localhost 59001
+Socket-Programming 193.136.154.60 59000
+cenas 193.136.154.60 59001
