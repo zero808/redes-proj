@@ -11,8 +11,7 @@
 #include <sys/stat.h>
 #include <netdb.h>
 
-#include "constants.h"
-#include "functions.h"
+
 
 #define TES_PORT 59000
 #define ECP_PORT 58055
@@ -32,16 +31,17 @@ int checkdeadline(char*qid,struct tm *t ){
 				//N_N_DD_MM_YYYYY_HH_MM_SS			
 	char* arr[10];
 	char * ch;
-	ch = strtok(strdup(qid), "_");
+	ch = strtok(qid, "_");
 	int i = 0;
 	while (ch != NULL) {
 		arr[i] = ch;
 		i++;
 		ch = strtok(NULL, "_");
 	}
+
 	printf("dealine year->%d actual->%d\n",atoi(arr[4]),t->tm_year +1900  );
 	printf("dealine mon->%d actual->%d\n",atoi(arr[3]), t->tm_mon +1 );
-	printf("dealine day->%d actual->%d\n",atoi(arr[2]), t->tm_mday +1 );
+	printf("dealine day->%d actual->%d\n",atoi(arr[2]), t->tm_mday );
 	printf("dealine hour->%d actual->%d\n",atoi(arr[5]),t->tm_hour );
 	printf("dealine min->%d actual->%d\n",atoi(arr[6]),t->tm_min );
 	printf("dealine sec->%d actual->%d\n",atoi(arr[7]),t->tm_sec );		
@@ -88,6 +88,12 @@ struct tm* deadline(struct tm *t){
 char* timeformat(struct tm *t) {
 	char *tf = malloc(sizeof(char)* (19));
 	strftime(tf, 19,"%d%b%Y_%H:%M:%S", t);
+	return tf;
+}
+
+char* timeformat1(struct tm *t) {
+	char *tf = malloc(sizeof(char)* (20));
+	strftime(tf, 20,"%d_%m_%Y_%H_%M_%S", t);
 	return tf;
 }
 
@@ -288,7 +294,7 @@ int main(int argc, char **argv) {
 				
 				sprintf(dtime, "%s",timeformat(deadline(current_time)));
 				//generate QID: TES_NUMBER+questionnaire_number+deadline
-				sprintf(QID, "%d_%d_%s",  TES_NUMBER, questionnaire_number, timeformat(deadline(current_time))); 
+				sprintf(QID, "%d_%d_%s",  TES_NUMBER, questionnaire_number, timeformat1(deadline(current_time))); 
 
 				FILE *handler = fopen(filename, "rb");
 				if (handler == NULL){
@@ -350,19 +356,22 @@ int main(int argc, char **argv) {
 			}
 			
 			else if (strcmp(arr[0], "RQS") == 0 ) {
-				
+			  	
 			  if (atoi(arr[1]) > 99999 ||  atoi(arr[1]) < 10000 || sizeof(arr[2]) > 24){
 				  if (send_bytes = write(newfd, "-2\n", 4) <= 0)exit(1);
 				  close(newfd); exit(1);
 			  }
+			  printf("SID, QID checked\n");
 			  
 			  strcpy(SID, arr[1]);
 			  strcpy(QID, arr[2]);
-
-			  if (checkdeadline(QID,current_time) == -1){
+			  printf("%s\n", QID);
+			
+			   if (checkdeadline(arr[2],current_time) == -1){
 				  if (send_bytes = write(newfd, "-1\n", 4) <= 0)exit(1);
 				  close(newfd); exit(1);
-			  }
+				  }
+			  
 			  
 			  for (i = 0; i < 5; i++) {	  
 				  if (strcmp(arr[i + 3], "A") == 0 ||
@@ -384,7 +393,7 @@ int main(int argc, char **argv) {
 			  fseek(a, 0, SEEK_END);
 			  size = ftell(a);
 			  rewind(a);
-			  printf("%d",size);
+
 
 			  //allocate a string that can hold it all
 			  correctanswers = (char*)malloc(sizeof(char) * (size));
@@ -398,12 +407,12 @@ int main(int argc, char **argv) {
 			  for (i = 0; i < 5; i++) {
 				  if (*correctanswers == arr[i + 3][0]) {
 					  score += 20;
-					  correctanswers+=2;
+					  correctanswers+=3;
 				  }
 			  }
 			  
 			  AQS_bytes = sprintf(send_str, "AQS %s %d\n", QID, score);
-			  printf("%s Score: %d%\n", SID, score);
+
 
 			  ptr1 = send_str;
 			  nbytes = AQS_bytes; // '\0' is not transmitted
