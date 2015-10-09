@@ -11,8 +11,6 @@
 #include <sys/stat.h>
 #include <netdb.h>
 
-
-
 #define TES_PORT 59000
 #define ECP_PORT 58055
 #define MAX_BUF 128
@@ -23,9 +21,15 @@
 
 //------------------------------------------------------
 extern int errno;
-const char * TOPIC_NAME = "Network Programming";
+const char * TOPIC_NAME = "Networks";
 
 //-------------------------------------------------------
+
+
+void handler_alrm(){
+	printf("Sockect timeout\n");
+	exit(1);
+}
 
 int checkdeadline(char*qid,struct tm *t ){
 				//N_N_DD_MM_YYYYY_HH_MM_SS			
@@ -150,14 +154,14 @@ int main(int argc, char **argv) {
 	
 	ssize_t rcvd_bytes, send_bytes, read_file_bytes, send_bytes_data, AQT_bytes, AQS_bytes;
 
-	char *SID, *QID, dtime[18+1], *data, filename[12+1], *correctanswers, *ptr1, *ECPname, recv_str[MAX_BUF], send_str[MAX_BUF];
+	char *SID, *QID, dtime[18+1], *data, filename[12+1], *correctanswers, *ptr1, ECPname[MAX_BUF], recv_str[MAX_BUF], send_str[MAX_BUF];
 		 SID = (char*)malloc(sizeof(char) * (5 + 1));
 		 QID = (char*)malloc(sizeof(char) * (23 + 1));
 		 
 		 
 	char usage[] = "usage: ./TES [-p TESport] [-n ECPname] [-e ECPport]";
 
-	time_t rawtime, deadlinetime;
+	time_t rawtime;
   	struct tm * current_time;
   	time (&rawtime);
   	current_time = localtime (&rawtime);
@@ -168,10 +172,10 @@ int main(int argc, char **argv) {
 							/* Avoid zombies when child processes die. */
 	if ((old_handler = signal(SIGCHLD, SIG_IGN)) == SIG_ERR) exit(1);
 	
-	/*if (signal(SIGALRM, handler_alrm) == SIG_ERR) { 
+	if (signal(SIGALRM, handler_alrm) == SIG_ERR) { 
 		perror("Error in signal");
 		exit(1); 
-	}*/
+	}
 	
 
 	if (argc % 2 != 1 || argc > 7) {
@@ -181,7 +185,7 @@ int main(int argc, char **argv) {
 
 	if (argc == 3) {
 		if (!strcmp(argv[1], "-p")) TESport = atoi(argv[2]);
-		else if (!strcmp(argv[1], "-n")) strcpy(ECPname, argv[4]);
+		else if (!strcmp(argv[1], "-n")) strcpy(ECPname, argv[2]);
 		else if (!strcmp(argv[1], "-e")) ECPport = atoi(argv[2]);
 		else {
 			printf("error: Invalid option.\n%s\n", usage);
@@ -229,7 +233,7 @@ int main(int argc, char **argv) {
 		perror("Error creating tcp socket.\n");
 		exit(1);
 	}
-	if ((fd_ecp = socket(AF_INET, SOCK_STREAM, 0)) == -1){
+	if ((fd_ecp = socket(AF_INET, SOCK_DGRAM, 0)) == -1){
 		perror("Error creating ecp socket.\n");
 		exit(1);
 	}
@@ -358,7 +362,7 @@ int main(int argc, char **argv) {
 			else if (strcmp(arr[0], "RQS") == 0 ) {
 			  	
 			  if (atoi(arr[1]) > 99999 ||  atoi(arr[1]) < 10000 || sizeof(arr[2]) > 24){
-				  if (send_bytes = write(newfd, "-2\n", 4) <= 0)exit(1);
+				  if ((send_bytes = write(newfd, "-2\n", 4)) <= 0)exit(1);
 				  close(newfd); exit(1);
 			  }
 			  printf("SID, QID checked\n");
@@ -368,7 +372,7 @@ int main(int argc, char **argv) {
 			  printf("%s\n", QID);
 			
 			   if (checkdeadline(arr[2],current_time) == -1){
-				  if (send_bytes = write(newfd, "-1\n", 4) <= 0)exit(1);
+				  if ((send_bytes = write(newfd, "-1\n", 4)) <= 0)exit(1);
 				  close(newfd); exit(1);
 				  }
 			  
@@ -381,7 +385,7 @@ int main(int argc, char **argv) {
 					  strcmp(arr[i + 3], "N") == 0)continue;
 				  else {
 					  printf("\n----->invalid answers\n");
-					  if (send_bytes = write(newfd, "ERR\n", ERR_SIZE) <= 0)exit(1);
+					  if ((send_bytes = write(newfd, "ERR\n", ERR_SIZE)) <= 0)exit(1);
 				  }
 			  }
 			  
@@ -429,30 +433,32 @@ int main(int argc, char **argv) {
 			  close(newfd);
 			  
 			  /* TES-ECP Protocol (in UDP) */
-				  
+				printf("tcp closed");
+				printf("%s", ECPname);  
 			  memset((void*)&serveraddr, (int)'\0', sizeof(serveraddr));
 			  serveraddr.sin_family = AF_INET;
-			  if (ECPname == NULL)serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
-			  else {
-				  if ((hostptr = gethostbyname(ECPname)) == NULL) exit(1);
-				  serveraddr.sin_addr.s_addr = ((struct in_addr*)(hostptr->h_addr_list[0]))->s_addr; //ECP server IP address
-			  }
+			 if ((hostptr = gethostbyname(ECPname)) == NULL) exit(1);
+				printf("%s", ECPname);
+			 serveraddr.sin_addr.s_addr = ((struct in_addr*)(hostptr->h_addr_list[0]))->s_addr; //ECP server IP address
+			 printf("%s", hostptr->h_name);
 			  serveraddr.sin_port = htons((u_short)ECPport);
-			  if (bind(fd_ecp, (struct sockaddr*)&serveraddr, sizeof(serveraddr)) == -1)exit(1);//error
+			 
 			  clientlen = sizeof(clientaddr);
+				printf("ligacao ucp estabelecida\n");
 
 			  /* TES-ECP: IQR SID QID topic_name score
 			  ECP-TES: AWI QID */
 
 			  sprintf(send_str, "IQR %s %s %s %d\n", SID, QID, TOPIC_NAME, score);
+				printf("%s\n",send_str);
 
-			  send_bytes = sendto(fd_ecp, send_str, strlen(send_str) + 1, 0, (struct sockaddr*)&clientaddr, clientlen);
+			  send_bytes = sendto(fd_ecp, send_str, strlen(send_str), 0, (struct sockaddr*)&clientaddr, clientlen);
 			  if (send_bytes == -1)exit(1);//error
 			 
 			  alarm(10);//generates the SIGALRM signal when the specified time has expired
 
 			  rcvd_bytes = recvfrom(fd_ecp, recv_str, strlen(recv_str), 0, (struct sockaddr*)&clientaddr, &clientlen);
-			  if (rcvd_bytes = -1)exit(1);//error
+			  if (rcvd_bytes == -1)exit(1);//error
 			 else alarm(0); //cancel currently active alarm
 
 			  char *array[8];
@@ -470,15 +476,15 @@ int main(int argc, char **argv) {
 			
 			  else {
 				  send_bytes = sendto(fd_ecp, "ERR\n", ERR_SIZE, 0, (struct sockaddr*)&clientaddr, clientlen);
-				  if (send_bytes = -1)exit(1);//error
+				  if (send_bytes == -1)exit(1);//error
 				  exit(1);
 			  }
 		    }
 		      
 		      else {
 			printf("\n----->invalid answers\n");
-
-			if (send_bytes = write(newfd, "ERR\n", ERR_SIZE) <= 0)exit(1);
+			send_bytes = write(newfd, "ERR\n", ERR_SIZE);
+			if (send_bytes <= 0)exit(1);
 				close(newfd); exit(1);
 		     }
 			
