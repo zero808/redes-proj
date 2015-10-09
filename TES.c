@@ -42,9 +42,9 @@ int checkdeadline(char*qid,struct tm *t ){
 	printf("dealine year->%d actual->%d\n",atoi(arr[4]),t->tm_year +1900  );
 	printf("dealine mon->%d actual->%d\n",atoi(arr[3]), t->tm_mon +1 );
 	printf("dealine day->%d actual->%d\n",atoi(arr[2]), t->tm_mday +1 );
-	printf("dealine hour->%d actual->%d\n",atoi(arr[5],t->tm_hour );
-	printf("dealine min->%d actual->%d\n",atoi(arr[6],t->tm_min );
-	printf("dealine sec->%d actual->%d\n",atoi(arr[7],t->tm_sec );		
+	printf("dealine hour->%d actual->%d\n",atoi(arr[5]),t->tm_hour );
+	printf("dealine min->%d actual->%d\n",atoi(arr[6]),t->tm_min );
+	printf("dealine sec->%d actual->%d\n",atoi(arr[7]),t->tm_sec );		
 		
 	if(t->tm_year +1900 > atoi(arr[4]))return -1;
 	if(t->tm_year +1900 == atoi(arr[4])) if(t->tm_mon +1 > atoi(arr[3]))return -1;
