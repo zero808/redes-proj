@@ -331,9 +331,6 @@ int main(int argc, char **argv) {
   					else
   						exit(1);
   					
-  					
-  					printf("AQS reply =«%s»\n", ptr);
-  					
   					n = checkErrorMessages(ptr, "AQS");
 					if (n == -1) exit(1);
   					
