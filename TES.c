@@ -18,14 +18,61 @@
 #define ECP_PORT 58055
 #define MAX_BUF 128
 #define NUM_OF_FILES 2
-#define NUM_OF_QUESTIONS 5
 #define TES_NUMBER 1
 #define ERR_SIZE 4
 #define DEADLINE_MIN 1
 
+//------------------------------------------------------
 extern int errno;
-//const char * CORRECT_ANSWERS[NUM_OF_FILES][NUM_OF_QUESTIONS] = { {"A","A","A","A","A"},{ "A","B","C","D","A"} };
 const char * TOPIC_NAME = "Network Programming";
+
+//-------------------------------------------------------
+
+int checkdeadline(char*qid,struct tm *t ){
+				//N_N_DD_MM_YYYYY_HH_MM_SS			
+	char* arr[10];
+	char * ch;
+	ch = strtok(strdup(qid), "_");
+	int i = 0;
+	while (ch != NULL) {
+		arr[i] = ch;
+		i++;
+		ch = strtok(NULL, "_");
+	}
+	printf("dealine year->%d actual->%d\n",atoi(arr[4]),t->tm_year +1900  );
+	printf("dealine mon->%d actual->%d\n",atoi(arr[3]), t->tm_mon +1 );
+	printf("dealine day->%d actual->%d\n",atoi(arr[2]), t->tm_mday +1 );
+	printf("dealine hour->%d actual->%d\n",atoi(arr[5],t->tm_hour );
+	printf("dealine min->%d actual->%d\n",atoi(arr[6],t->tm_min );
+	printf("dealine sec->%d actual->%d\n",atoi(arr[7],t->tm_sec );		
+		
+	if(t->tm_year +1900 > atoi(arr[4]))return -1;
+	if(t->tm_year +1900 == atoi(arr[4])) if(t->tm_mon +1 > atoi(arr[3]))return -1;
+	if(t->tm_mon +1 == atoi(arr[3])) if(t->tm_mday > atoi(arr[2]))return -1;
+	if(t->tm_mday == atoi(arr[2])) if(t->tm_hour > atoi(arr[5]))return -1;
+	if(t->tm_hour == atoi(arr[5])) if(t->tm_min > atoi(arr[6]))return -1;
+	if(t->tm_min == atoi(arr[6])) if(t->tm_sec > atoi(arr[7]))return -1;
+		
+	return 0;			
+}
+
+
+char* giveanswersfilename(char*qid){
+	//N_N_DD_MM_YYYYY_HH_MM_SS			
+	char *filename=malloc(sizeof(char)* (13+1));
+	char* arr[10];
+	char * ch;
+	ch = strtok(strdup(qid), "_");
+	int i = 0;
+	while (ch != NULL) {
+		arr[i] = ch;
+		i++;
+		ch = strtok(NULL, "_");
+	}
+	sprintf(filename,"T%sQF%sA.txt",arr[0],arr[1]);
+	
+	return filename;
+}
 
 
 struct tm* deadline(struct tm *t){
@@ -37,32 +84,20 @@ struct tm* deadline(struct tm *t){
 	return t;
 }
 
-char* timeformat(struct tm *t) {
-	char day[2], hour[2], min[2], sec[2], mon[4];
-	
-	char *tf = malloc(sizeof(char)* (16 + 1));
-	
-	if (t->tm_mday < 10)sprintf(day, "0%d", t->tm_mday);
-	else sprintf(day, "%d", t->tm_mday);
-	if (t->tm_hour < 10)sprintf(hour, "0%d", t->tm_hour);
-	else sprintf(hour, "%d", t->tm_hour);
-	if (t->tm_min < 10)sprintf(min, "0%d", t->tm_min);
-	else sprintf(min, "%d", t->tm_min);
-	if (t->tm_sec < 10)sprintf(sec, "0%d", t->tm_sec);
-	else sprintf(sec, "%d", t->tm_sec);
-	
-	strftime(mon, 4,"%b", t); //abreviated month name
-	
-	sprintf(tf, "%s%s%d_%s:%s:%s", day, mon, t->tm_year + 1900, hour, min, sec);
 
+char* timeformat(struct tm *t) {
+	char *tf = malloc(sizeof(char)* (19));
+	strftime(tf, 19,"%d%b%Y_%H:%M:%S", t);
 	return tf;
 }
+
 
 char* createQID(char* SID, struct tm *t) {
 	char *QID = malloc(sizeof(char)* (23 + 1));
 	sprintf(QID,"%s%s", SID, timeformat(t));
 	return QID;
 }
+
 		
 char* readTCPclient(int sockfd) {
 	char buffer[MAX_BUF];
@@ -77,18 +112,15 @@ char* readTCPclient(int sockfd) {
 			free(message);
 			exit(1);
 		} 
-		
 		for (i = 0; i < nread; i++) {
 			message[message_size + i] = buffer[i];
 		}
 		memset(buffer, 0, MAX_BUF);
-
 		message_size += nread;
 		if (message_size >= message_capacity) {
 			message_capacity += MAX_BUF;
 			message = realloc(message, message_capacity);
 		}
-		
 		//message ends with the character '\n'
 		if(message[strlen(message)-1] == '\n')
 			break;
@@ -98,9 +130,12 @@ char* readTCPclient(int sockfd) {
 	return message;
 }
 
+
+//--------------------------------------------------------------------------------------------
+
 int main(int argc, char **argv) {
 
-	int fd_tcp, fd_ecp, newfd, clientlen, ret, num, nbytes, nleft, size, score=0;
+	int fd_tcp, fd_ecp, newfd, clientlen, ret, questionnaire_number, nbytes, nleft, size, score=0;
 	
 	struct sockaddr_in serveraddr, clientaddr;
 	struct hostent *hostptr;
@@ -109,8 +144,7 @@ int main(int argc, char **argv) {
 	
 	ssize_t rcvd_bytes, send_bytes, read_file_bytes, send_bytes_data, AQT_bytes, AQS_bytes;
 
-	char *SID, *QID, dtime[18+1], *data, filename[12+1], answersfilename[13+1], *correctanswers, 
-		 *ptr1, *ECPname, recv_str[MAX_BUF], send_str[MAX_BUF];
+	char *SID, *QID, dtime[18+1], *data, filename[12+1], *correctanswers, *ptr1, *ECPname, recv_str[MAX_BUF], send_str[MAX_BUF];
 		 SID = (char*)malloc(sizeof(char) * (5 + 1));
 		 QID = (char*)malloc(sizeof(char) * (23 + 1));
 		 
@@ -119,7 +153,6 @@ int main(int argc, char **argv) {
 
 	time_t rawtime, deadlinetime;
   	struct tm * current_time;
-
   	time (&rawtime);
   	current_time = localtime (&rawtime);
  	
@@ -132,8 +165,8 @@ int main(int argc, char **argv) {
 	/*if (signal(SIGALRM, handler_alrm) == SIG_ERR) { 
 		perror("Error in signal");
 		exit(1); 
-	}
-	*/
+	}*/
+	
 
 	if (argc % 2 != 1 || argc > 7) {
 		printf("error: Incorrect number of arguments.\n%s\n", usage);
@@ -224,7 +257,7 @@ int main(int argc, char **argv) {
 			exit(1);
 		}
 		else if (pid == 0) { //child process
-			//close(fd_tcp);
+			close(fd_tcp);
 			printf("Sent by [%s :%hu]\n",inet_ntoa(clientaddr.sin_addr),ntohs(clientaddr.sin_port));
 									
 								/* USER-TES Protocol (in TCP) */
@@ -245,231 +278,203 @@ int main(int argc, char **argv) {
 
 			/* USER-TES: RQT SID
 			TES-USER: AQT QID time size data */
+
+			if (strcmp(arr[0], "RQT") == 0 && atoi(arr[1]) < 100000 && atoi(arr[1]) > 9999) {
+				
+				strcpy(SID, arr[1]);
 			
+				questionnaire_number = rand() % (NUM_OF_FILES + 1);//choose randomly 1 of available questionnaires
+				sprintf(filename, "T%dQF%d.pdf", TES_NUMBER, questionnaire_number);
+				
+				sprintf(dtime, "%s",timeformat(deadline(current_time)));
+				//generate QID: TES_NUMBER+questionnaire_number+deadline
+				sprintf(QID, "%d_%d_%s",  TES_NUMBER, questionnaire_number, timeformat(deadline(current_time))); 
 
-			if (strcmp(arr[0], "RQT") == 0 && atoi(arr[1]) < 100000 && atoi(arr[1]) > 9999) strcpy(SID, arr[1]);
-			else {
-				if (send_bytes = write(newfd, "ERR\n", ERR_SIZE) <= 0)exit(1);
-				exit(0);
-			}
-			
-			num = rand() % (NUM_OF_FILES + 1);//choose randomly 1 of available questionnaires
+				FILE *handler = fopen(filename, "rb");
+				if (handler == NULL){
+					perror("Error: fopen().\n");
+					exit(1);
+				}
 
-			sprintf(filename, "T%dQF%d.pdf", TES_NUMBER, num);
-			//generate QID: SID+currenttime
-			QID=createQID(SID, current_time); 
+				fseek(handler, 0, SEEK_END);
+				size = ftell(handler);
+				rewind(handler);
 
-			deadlinetime = mktime(deadline(current_time));
-			
-			sprintf(dtime, "%s",timeformat(deadline(current_time)));
+				//allocate a string that can hold it all
+				data = (char*)malloc(sizeof(char) * (size + 1));
+				//read it all in one operation
+				read_file_bytes = fread(data, sizeof(char), size, handler);
 
-			FILE *handler = fopen(filename, "rb");
-			if (handler == NULL){
-				perror("Error: fopen().\n");
-				exit(1);
-			}
+				if (size != read_file_bytes) {
+					free(data);
+					perror("Error: fread().\n");
+					exit(1);
+				}
 
-			fseek(handler, 0, SEEK_END);
-			size = ftell(handler);
-			rewind(handler);
+				//each message ends with the character '\n'
+				AQT_bytes = sprintf(send_str, "AQT %s %s %d ", QID, dtime, size);
 
-			//allocate a string that can hold it all
-			data = (char*)malloc(sizeof(char) * (size + 1));
-			//read it all in one operation
-			read_file_bytes = fread(data, sizeof(char), size, handler);
+				ptr1 = send_str;
 
-			if (size != read_file_bytes) {
-				free(data);
-				perror("Error: fread().\n");
-				exit(1);
-			}
+				/* write() may write a smaller number of bytes than solicited */
+				nleft = AQT_bytes + read_file_bytes; // '\0' is not transmitted
 
-			//each message ends with the character '\n'
-			AQT_bytes = sprintf(send_str, "AQT %s %s %d ", QID, dtime, size);
-
-			ptr1 = send_str;
-
-			/* write() may write a smaller number of bytes than solicited */
-			nleft = AQT_bytes + read_file_bytes; // '\0' is not transmitted
-
-			while (nleft > 0) {
-				if (nleft > read_file_bytes) {
-					send_bytes = write(newfd, ptr1, AQT_bytes);
-					if (send_bytes <= 0) {
-						perror("Error: write().\n");
-						exit(1);
+				while (nleft > 0) {
+					if (nleft > read_file_bytes) {
+						send_bytes = write(newfd, ptr1, AQT_bytes);
+						if (send_bytes <= 0) {
+							perror("Error: write().\n");
+							exit(1);
+						}
+						nleft -= send_bytes;
+						ptr1 += send_bytes;
 					}
-					nleft -= send_bytes;
-					ptr1 += send_bytes;
-				}
-				else {
-					send_bytes_data = write(newfd, data, nleft);
-					if (send_bytes_data <= 0) {
-						perror("Error: data write().\n");
-						exit(1);
+					else {
+						send_bytes_data = write(newfd, data, nleft);
+						if (send_bytes_data <= 0) {
+							perror("Error: data write().\n");
+							exit(1);
+						}
+						nleft -= send_bytes_data;
+						data += send_bytes_data;
 					}
-					nleft -= send_bytes_data;
-					data += send_bytes_data;
+					
 				}
-				
-			}
-			send_bytes_data = write(newfd, "\n", 1);
-			if (send_bytes_data <= 0) {
-				perror("Error: data write().\n");
-				exit(1);
-			}
-
-			close(newfd);
-			if ((fd_tcp = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-				perror("Error creating tcp socket.\n");
-				exit(1);
-			}
-			memset((void*)&serveraddr, (int)'\0', sizeof(serveraddr));
-			serveraddr.sin_family = AF_INET;
-			serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
-			serveraddr.sin_port = htons((u_short)TESport);
-			if (bind(fd_tcp, (struct sockaddr*)&serveraddr, sizeof(serveraddr)) == -1) {
-				perror("Error: bind().\n");
-				exit(1);
-			}
-			if (listen(fd_tcp, 5) == -1){
-				perror("Error: listen().\n");
-				exit(1);
-			}
-			
-			do newfd = accept(fd_tcp, (struct sockaddr*)&clientaddr, &clientlen);//wait for a connection
-			while (newfd == -1 && errno == EINTR);
-			if (newfd == -1){
-				perror("Error: accept().\n");
-				exit(1);
-			}
-			printf("Sent by [%s :%hu]\n",inet_ntoa(clientaddr.sin_addr),ntohs(clientaddr.sin_port));
-			//close(fd_tcp);
-			ptr1 = readTCPclient(newfd);
-			printf("\nReceived message:«%s»\n", ptr1);
-		
-			//we can use parseString() from functions.c...
-			ch = strtok(strdup(ptr1), " ");
-		 	i = 0;
-			while (ch != NULL) {
-				arr[i] = ch;
-				i++;
-				ch = strtok(NULL, " ");
-			}
-			
-			if (strcmp(arr[0], "RQS") != 0 ) {
-				printf("\n----->invalid answers\n");
-				if (send_bytes = write(newfd, "ERR\n", ERR_SIZE) <= 0)exit(1);
-			}
-			rawtime = time(0);
-			if (difftime(rawtime, deadlinetime) > 0){
-				if (send_bytes = write(newfd, "AQS -1\n", 7) <= 0)exit(1);
-			}
-			if(atoi(arr[1]) != atoi(SID) || atoi(arr[2]) != atoi(QID)){
-				if (send_bytes = write(newfd, "AQS -2\n", 7) <= 0)exit(1);
-			}
-			
-			for (i = 0; i < 5; i++) {
-				
-				if (strcmp(arr[i + 3], "A") == 0 ||
-					strcmp(arr[i + 3], "B") == 0 ||
-					strcmp(arr[i + 3], "C") == 0 ||
-					strcmp(arr[i + 3], "D") == 0 ||
-					strcmp(arr[i + 3], "N") == 0)continue;
-
-				else {
-					printf("\n----->invalid answers\n");
-					if (send_bytes = write(newfd, "ERR\n", ERR_SIZE) <= 0)exit(1);
+				send_bytes_data = write(newfd, "\n", 1);
+				if (send_bytes_data <= 0) {
+					perror("Error: data write().\n");
+					exit(1);
 				}
-			}
-			sprintf(answersfilename, "T%dQF%dA.txt", TES_NUMBER, num);
-			FILE *a = fopen(answersfilename, "r");
-			if (a == NULL) {
-				perror("Error: fopen().\n");
-				exit(1);
-			}
-			fseek(a, 0, SEEK_END);
-			size = ftell(a);
-			rewind(a);
 
-			//allocate a string that can hold it all
-			correctanswers = (char*)malloc(sizeof(char) * (size + 1));
-			//read it all in one operation
-			if (fread(correctanswers, sizeof(char), size, a) <= 0) {
-				perror("Error: fread().\n");
-				exit(1);
+				close (newfd); exit(0);
 			}
-
-			for (i = 0; i < 5; i++) {
-				if (*correctanswers == arr[i + 3][0]) {
-					score += 20;
-					correctanswers+=3;
-				}
-			}
-			AQS_bytes = sprintf(send_str, "AQS %s %d\n", QID, score);
-			printf("%s Score: %d%\n", SID, score);
-
-			ptr1 = send_str;
-			nbytes = AQS_bytes; // '\0' is not transmitted
-
-			/* write() may write a smaller number of bytes than solicited */
-			nleft = nbytes;
-			while (nleft > 0) {
-				send_bytes = write(newfd, ptr1, nleft);
-				if (send_bytes <= 0) exit(1); //error
-				nleft -= send_bytes;
-				ptr1 += send_bytes;
-			}
-			printf("TEST AQS sent : «%s»", send_str);
-			close(newfd);
 			
-			/* TES-ECP Protocol (in UDP) */
+			else if (strcmp(arr[0], "RQS") == 0 ) {
 				
-			memset((void*)&serveraddr, (int)'\0', sizeof(serveraddr));
-			serveraddr.sin_family = AF_INET;
-			if (ECPname == NULL)serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
-			else {
-				if ((hostptr = gethostbyname(ECPname)) == NULL) exit(1);
-				serveraddr.sin_addr.s_addr = ((struct in_addr*)(hostptr->h_addr_list[0]))->s_addr; //ECP server IP address
-			}
-			serveraddr.sin_port = htons((u_short)ECPport);
-			if (bind(fd_ecp, (struct sockaddr*)&serveraddr, sizeof(serveraddr)) == -1)exit(1);//error
-			clientlen = sizeof(clientaddr);
+			  if (atoi(arr[1]) > 99999 ||  atoi(arr[1]) < 10000 || sizeof(arr[2]) > 24){
+				  if (send_bytes = write(newfd, "-2\n", 4) <= 0)exit(1);
+				  close(newfd); exit(1);
+			  }
+			  
+			  strcpy(SID, arr[1]);
+			  strcpy(QID, arr[2]);
 
-			/* TES-ECP: IQR SID QID topic_name score
-			ECP-TES: AWI QID */
+			  if (checkdeadline(QID,current_time) == -1){
+				  if (send_bytes = write(newfd, "-1\n", 4) <= 0)exit(1);
+				  close(newfd); exit(1);
+			  }
+			  
+			  for (i = 0; i < 5; i++) {	  
+				  if (strcmp(arr[i + 3], "A") == 0 ||
+					  strcmp(arr[i + 3], "B") == 0 ||
+					  strcmp(arr[i + 3], "C") == 0 ||
+					  strcmp(arr[i + 3], "D") == 0 ||
+					  strcmp(arr[i + 3], "N") == 0)continue;
+				  else {
+					  printf("\n----->invalid answers\n");
+					  if (send_bytes = write(newfd, "ERR\n", ERR_SIZE) <= 0)exit(1);
+				  }
+			  }
+			  
+			  FILE *a = fopen(giveanswersfilename(QID), "r");
+			  if (a == NULL) {
+				  perror("Error: fopen().\n");
+				  exit(1);
+			  }
+			  fseek(a, 0, SEEK_END);
+			  size = ftell(a);
+			  rewind(a);
+			  printf("%d",size);
 
-			sprintf(send_str, "IQR %s %s %s %d\n", SID, QID, TOPIC_NAME, score);
+			  //allocate a string that can hold it all
+			  correctanswers = (char*)malloc(sizeof(char) * (size));
+			  //read it all in one operation
+			  if (fread(correctanswers, sizeof(char), size, a) <= 0) {
+				  perror("Error: fread().\n");
+				  exit(1);
+			  }
+			  
 
-			send_bytes = sendto(fd_ecp, send_str, strlen(send_str) + 1, 0, (struct sockaddr*)&clientaddr, clientlen);
-			if (send_bytes == -1)exit(1);//error
+			  for (i = 0; i < 5; i++) {
+				  if (*correctanswers == arr[i + 3][0]) {
+					  score += 20;
+					  correctanswers+=2;
+				  }
+			  }
+			  
+			  AQS_bytes = sprintf(send_str, "AQS %s %d\n", QID, score);
+			  printf("%s Score: %d%\n", SID, score);
+
+			  ptr1 = send_str;
+			  nbytes = AQS_bytes; // '\0' is not transmitted
+
+			  /* write() may write a smaller number of bytes than solicited */
+			  nleft = nbytes;
+			  while (nleft > 0) {
+				  send_bytes = write(newfd, ptr1, nleft);
+				  if (send_bytes <= 0) exit(1); //error
+				  nleft -= send_bytes;
+				  ptr1 += send_bytes;
+			  }
+			  printf("TEST AQS sent : «%s»", send_str);
+			  close(newfd);
+			  
+			  /* TES-ECP Protocol (in UDP) */
+				  
+			  memset((void*)&serveraddr, (int)'\0', sizeof(serveraddr));
+			  serveraddr.sin_family = AF_INET;
+			  if (ECPname == NULL)serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
+			  else {
+				  if ((hostptr = gethostbyname(ECPname)) == NULL) exit(1);
+				  serveraddr.sin_addr.s_addr = ((struct in_addr*)(hostptr->h_addr_list[0]))->s_addr; //ECP server IP address
+			  }
+			  serveraddr.sin_port = htons((u_short)ECPport);
+			  if (bind(fd_ecp, (struct sockaddr*)&serveraddr, sizeof(serveraddr)) == -1)exit(1);//error
+			  clientlen = sizeof(clientaddr);
+
+			  /* TES-ECP: IQR SID QID topic_name score
+			  ECP-TES: AWI QID */
+
+			  sprintf(send_str, "IQR %s %s %s %d\n", SID, QID, TOPIC_NAME, score);
+
+			  send_bytes = sendto(fd_ecp, send_str, strlen(send_str) + 1, 0, (struct sockaddr*)&clientaddr, clientlen);
+			  if (send_bytes == -1)exit(1);//error
+			 
+			  alarm(10);//generates the SIGALRM signal when the specified time has expired
+
+			  rcvd_bytes = recvfrom(fd_ecp, recv_str, strlen(recv_str), 0, (struct sockaddr*)&clientaddr, &clientlen);
+			  if (rcvd_bytes = -1)exit(1);//error
+			 else alarm(0); //cancel currently active alarm
+
+			  char *array[8];
+			  char *c = strtok(recv_str, " ");
+			  int j = 0;
+			  while (c != NULL) {
+				  array[j] = c;
+				  j++;
+				  c = strtok(NULL, " ");
+			  }
+			  if (strcmp(array[0], "AWI") == 0 && strcmp(array[1], QID) == 0) {
+				  close(fd_ecp);
+				  exit(0);
+			  }
 			
-			alarm(10);//generates the SIGALRM signal when the specified time has expired
+			  else {
+				  send_bytes = sendto(fd_ecp, "ERR\n", ERR_SIZE, 0, (struct sockaddr*)&clientaddr, clientlen);
+				  if (send_bytes = -1)exit(1);//error
+				  exit(1);
+			  }
+		    }
+		      
+		      else {
+			printf("\n----->invalid answers\n");
 
-			rcvd_bytes = recvfrom(fd_ecp, recv_str, strlen(recv_str), 0, (struct sockaddr*)&clientaddr, &clientlen);
-			if (rcvd_bytes = -1)exit(1);//error
-			else alarm(0); //cancel currently active alarm
-
-			char *array[8];
-			char *c = strtok(recv_str, " ");
-			int j = 0;
-			while (c != NULL) {
-				array[j] = c;
-				j++;
-				c = strtok(NULL, " ");
-			}
-			if (strcmp(array[0], "AWI") == 0 && strcmp(array[1], QID) == 0) {
-				close(fd_ecp);
-				exit(0);
-			}
-			
-			else {
-				send_bytes = sendto(fd_ecp, "ERR\n", ERR_SIZE, 0, (struct sockaddr*)&clientaddr, clientlen);
-				if (send_bytes = -1)exit(1);//error
-			}
+			if (send_bytes = write(newfd, "ERR\n", ERR_SIZE) <= 0)exit(1);
+				close(newfd); exit(1);
+		     }
 			
 		}
-
+		
 		//parent process
 		do ret = close(newfd);
 		while (ret == -1 && errno == EINTR);
