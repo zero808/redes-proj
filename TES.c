@@ -41,14 +41,7 @@ int checkdeadline(char*qid,struct tm *t ){
 		arr[i] = ch;
 		i++;
 		ch = strtok(NULL, "_");
-	}
-
-	printf("dealine year->%d actual->%d\n",atoi(arr[4]),t->tm_year +1900  );
-	printf("dealine mon->%d actual->%d\n",atoi(arr[3]), t->tm_mon +1 );
-	printf("dealine day->%d actual->%d\n",atoi(arr[2]), t->tm_mday );
-	printf("dealine hour->%d actual->%d\n",atoi(arr[5]),t->tm_hour );
-	printf("dealine min->%d actual->%d\n",atoi(arr[6]),t->tm_min );
-	printf("dealine sec->%d actual->%d\n",atoi(arr[7]),t->tm_sec );		
+	}	
 		
 	if(t->tm_year +1900 > atoi(arr[4]))return -1;
 	if(t->tm_year +1900 == atoi(arr[4])) if(t->tm_mon +1 > atoi(arr[3]))return -1;
@@ -145,7 +138,7 @@ char* readTCPclient(int sockfd) {
 
 int main(int argc, char **argv) {
 
-	int fd_tcp, fd_ecp, newfd, clientlen, ret, questionnaire_number, nbytes, nleft, size, score=0;
+	int fd_tcp, fd_ecp, newfd, clientlen, serverlen, ret, questionnaire_number, nbytes, nleft, size, score=0;
 	
 	struct sockaddr_in serveraddr, clientaddr;
 	struct hostent *hostptr;
@@ -374,11 +367,9 @@ int main(int argc, char **argv) {
 				  if ((send_bytes = write(newfd, "-2\n", 4)) <= 0)exit(1);
 				  close(newfd); exit(1);
 			  }
-			  printf("SID, QID checked\n");
 			  
 			  strcpy(SID, arr[1]);
 			  strcpy(QID, arr[2]);
-			  printf("%s\n", QID);
 			
 			   if (checkdeadline(arr[2],current_time) == -1){
 				  if ((send_bytes = write(newfd, "-1\n", 4)) <= 0)exit(1);
@@ -442,8 +433,7 @@ int main(int argc, char **argv) {
 			  close(newfd);
 			  
 			  /* TES-ECP Protocol (in UDP) */
-				printf("tcp closed");
-				printf("%s", ECPname);  
+				
 			  memset((void*)&serveraddr, (int)'\0', sizeof(serveraddr));
 			  serveraddr.sin_family = AF_INET;
 			 if ((hostptr = gethostbyname(ECPname)) == NULL) exit(1);
@@ -452,8 +442,7 @@ int main(int argc, char **argv) {
 			 printf("%s", hostptr->h_name);
 			  serveraddr.sin_port = htons((u_short)ECPport);
 			 
-			  clientlen = sizeof(clientaddr);
-				printf("ligacao ucp estabelecida\n");
+			  serverlen = sizeof(serveraddr);
 
 			  /* TES-ECP: IQR SID QID topic_name score
 			  ECP-TES: AWI QID */
@@ -461,7 +450,7 @@ int main(int argc, char **argv) {
 			  sprintf(send_str, "IQR %s %s %s %d\n", SID, QID, TOPIC_NAME, score);
 				printf("%s\n",send_str);
 
-			  send_bytes = sendto(fd_ecp, send_str, strlen(send_str), 0, (struct sockaddr*)&clientaddr, clientlen);
+			  send_bytes = sendto(fd_ecp, send_str, strlen(send_str), 0, (struct sockaddr*)&serveraddr, serverlen);
 			  if (send_bytes == -1)exit(1);//error
 			 
 			  alarm(10);//generates the SIGALRM signal when the specified time has expired
@@ -484,7 +473,7 @@ int main(int argc, char **argv) {
 			  }
 			
 			  else {
-				  send_bytes = sendto(fd_ecp, "ERR\n", ERR_SIZE, 0, (struct sockaddr*)&clientaddr, clientlen);
+				  send_bytes = sendto(fd_ecp, "ERR\n", ERR_SIZE, 0, (struct sockaddr*)&serveraddr, serverlen);
 				  if (send_bytes == -1)exit(1);//error
 				  exit(1);
 			  }
