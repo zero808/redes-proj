@@ -197,12 +197,21 @@ int main(int argc, char **argv) {
 		if (!strcmp(argv[1], "-p")) {
 			TESport = atoi(argv[2]);
 			if (!strcmp(argv[3], "-n")) strcpy(ECPname, argv[4]);
-			else if (!strcmp(argv[3], "-e")) ECPport = atoi(argv[2]);
+			else if (!strcmp(argv[3], "-e")) ECPport = atoi(argv[4]);
 			else {
 				printf("error: Invalid option.\n%s\n", usage);
 				return 1;
 			}
-		}else {
+		}
+		if (!strcmp(argv[1], "-n")) {
+			strcpy(ECPname, argv[2]);
+			if (!strcmp(argv[3], "-e")) ECPport = atoi(argv[4]);
+			else {
+				printf("error: Invalid option.\n%s\n", usage);
+				return 1;
+			}
+		}
+		else {
 			printf("error: Invalid option.\n%s\n", usage);
 			return 1;
 		}
