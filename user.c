@@ -264,8 +264,6 @@ int main(int argc, char **argv) {
 	    				printf("Invalid AQT reply\n");
 	    				exit(1);
 	    			}
-	    			
-	    			printf("QID=<%s> time=<%s> size=<%zu>\n", QID, time, size);
 	    		
 	    			printf("received file %s\n", filename);
 	    			
@@ -298,8 +296,6 @@ int main(int argc, char **argv) {
 	    			len = strlen(ptr) - 1;
 	    			if (ptr[len] == '\n') ptr[len] = '\0';
             		else ptr[len + 1] = '\0';
-
-	    			printf("answers:«%s»\n", ptr);
   					
   					/* verify questionnaire answers */
   					n = verifyQuestAnswers(ptr, &T);
@@ -312,16 +308,12 @@ int main(int argc, char **argv) {
 	    			nbytes = n; //21+strlen(QID) ('\0' is not transmitted)
 	    			nleft = nbytes;
 	    			
-	    			printf("rqs_request=«%s» nleft before write=«%d»\n", ptr, nleft);
-	    			
 	    			while (nleft > 0) {
 	    				nwritten = write(fd_tcp, ptr, nleft);
 	    				if (nwritten <= 0) exit(1); //error
 	    				nleft -= nwritten;
 	    				ptr += nwritten;
 	    			}
-  					
-  					printf("nleft after write=«%d»\n", nleft);
   					
   					/*---------------------------------------------------------------------------
   					 | AQS QID score - User–TES Protocol (in TCP)

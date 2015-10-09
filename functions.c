@@ -408,18 +408,14 @@ int getAQTReply(int sockfd, char* qid, char* time, size_t* size) {
 			exit(1);//error
 		}
 		
-		//printf("nread from read()=<%d>\n", nread);
-		
 		if (nread > 0) {
 		
 			for (i = 0; i < nread; ++i) {
 				message[message_size + i] = buffer[i];
 				if (buffer[i] == delim) {
 					sz = (message_size + i) - k; //length of the token
-					printf("sz=%zd i=%d\n", sz, i);
 					token = (char*) calloc((sz + 1), sizeof(char));
 					memcpy(token, message + k, sz); //message + k points to the token's first char
-					printf("token<%d>: %s\n", ndelim, token);
 					
 					n = verifyAQT(token, ndelim, qid, time, size); //validate token
 					if (n == -1)
@@ -427,7 +423,6 @@ int getAQTReply(int sockfd, char* qid, char* time, size_t* size) {
 					
 					++ndelim;
 					k = (message_size + i) + 1; //index of next token's first char 
-					printf("k=%d\n", k);
 				}
 				
 				if (ndelim == 4) break; //all tokens processed
@@ -459,8 +454,6 @@ int getAQTReply(int sockfd, char* qid, char* time, size_t* size) {
 	/* process data from AQT reply */
 
 	int data_read = nread - nlastread; //data bytes from last read()
-	
-	printf("data_read=<%d> nread=<%d> nlastread=<%d>\n", data_read, nread, nlastread);
 	
 	n = sprintf(filename, "%s.pdf", qid);
 	if (n < 0) { printf("Error in sprintf"); exit(1); }
@@ -504,7 +497,6 @@ int getAQTReply(int sockfd, char* qid, char* time, size_t* size) {
 	/* read and process all the data bytes if data_read == 0 */
 	nbytes = data_size - data_read;
 	nleft = nbytes; //bytes left to read
-	printf("nleft=%d\n", nleft);
 	
 	char data[data_size];
 	memset(data, 0, data_size);
@@ -562,8 +554,6 @@ char* getAQSReply(int sockfd) {
 			free(message);
 			exit(1);//error
 		}
-		
-		printf("nread from aqs=<%d>\n", nread);
 		
 		if (nread > 0) {
 			for (i = 0; i < nread; i++) {
